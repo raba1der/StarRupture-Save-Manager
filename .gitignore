@@ -1,0 +1,101 @@
+# =====================================
+# Build results
+# =====================================
+bin/
+obj/
+out/
+
+# =====================================
+# Visual Studio
+# =====================================
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =====================================
+# Visual Studio Code
+# =====================================
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# =====================================
+# Rider / JetBrains
+# =====================================
+.idea/
+*.sln.iml
+
+# =====================================
+# .NET Core / SDK
+# =====================================
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# =====================================
+# NuGet
+# =====================================
+*.nupkg
+*.snupkg
+# Uncomment if you want to ignore packages folder
+# packages/
+
+# =====================================
+# Logs
+# =====================================
+*.log
+
+# =====================================
+# Test results
+# =====================================
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# =====================================
+# Coverage tools
+# =====================================
+coverage/
+coverage.opencover.xml
+
+# =====================================
+# OS files
+# =====================================
+.DS_Store
+Thumbs.db
+
+# =====================================
+# Publish output
+# =====================================
+publish/
+*.Publish.xml
+
+# =====================================
+# Azure / Web deploy
+# =====================================
+*.azurePubxml
+*.pubxml
+*.publishproj
+
+# =====================================
+# Local settings / secrets
+# =====================================
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# =====================================
+# Resharper
+# =====================================
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# =====================================
+# AI Nonsense
+# =====================================
+tmpclaude*
