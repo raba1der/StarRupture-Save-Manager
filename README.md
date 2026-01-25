@@ -37,7 +37,7 @@ A Windows desktop application for managing and repairing save files for the game
 - **Auto-updates** – Checks GitHub for new releases and notifies you when updates are available
 - **Progress Logging** – Real-time feedback during all operations
 
-## Screenshots
+## Interface
 
 The application provides a tabbed interface with five main sections:
 1. **Save Browser** – View and fix save files
