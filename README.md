@@ -1,6 +1,6 @@
 # Star Rupture Save Fixer
 
-A command-line tool to fix corrupted save files for the game **Star Rupture**. This utility helps repair common save file issues, particularly those related to drones with invalid targets.
+A Windows desktop application for managing and repairing save files for the game **Star Rupture**. This utility helps fix corrupted saves, manage game sessions, and sync saves via FTP.
 
 ![.NET 8.0](https://img.shields.io/badge/.NET-8.0-purple)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-blue)
@@ -8,10 +8,35 @@ A command-line tool to fix corrupted save files for the game **Star Rupture**. T
 
 ## Features
 
-- **Fix Drones** – Automatically detects and removes drones with invalid movement targets that can cause save corruption
+### Save File Repair
+- **Fix Drones** – Automatically detects and removes drones with invalid movement targets that cause save corruption
 - **Remove All Drones** – Completely removes all drone entities from your save file
-- **Non-destructive** – Original save files are preserved; fixed versions are saved with `_fixed` suffix
-- **Progress Feedback** – Visual progress indicators during processing
+- **Non-destructive** – Original save files are backed up with `_original.sav` suffix before modifications
+
+### Session Management
+- **Browse Sessions** – View all your Star Rupture save sessions in one place
+- **Copy Saves** – Transfer save files between different game sessions
+- **Delete Sessions** – Remove entire game sessions with confirmation protection
+
+### FTP Integration
+- **Upload Saves** – Sync your save files to a remote FTP server
+- **Download Saves** – Retrieve save files from your FTP server
+- **Secure Storage** – FTP credentials encrypted using Windows DPAPI
+- **FTPS Support** – Explicit TLS encryption for secure transfers
+
+### Additional Features
+- **Auto-detection** – Automatically locates your Steam save game folder
+- **Auto-updates** – Checks GitHub for new releases and notifies you when updates are available
+- **Progress Logging** – Real-time feedback during all operations
+
+## Screenshots
+
+The application provides a tabbed interface with five main sections:
+1. **Save Browser** – View and fix save files
+2. **Session Manager** – Manage game sessions
+3. **FTP Upload** – Upload saves to remote server
+4. **FTP Download** – Download saves from remote server
+5. **Settings** – Configure paths and FTP credentials
 
 ## Requirements
 
@@ -21,14 +46,14 @@ A command-line tool to fix corrupted save files for the game **Star Rupture**. T
 ## Installation
 
 ### Option 1: Download Release (Recommended)
-Download the latest release from the [StarRupture Utilities Website](https://starrupture-utilities.com) 
+Download the latest release from the [Releases](https://github.com/AlienXAXS/StarRupture-Save-Fixer/releases) page or the [StarRupture Utilities Website](https://starrupture-utilities.com)
 
 ### Option 2: Build from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/YourUsername/StarRuptureSaveFixer.git
-cd StarRuptureSaveFixer
+git clone https://github.com/AlienXAXS/StarRupture-Save-Fixer.git
+cd StarRupture-Save-Fixer
 
 # Build the project
 dotnet build -c Release
@@ -39,73 +64,74 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 ## Usage
 
-```
-StarRuptureSaveFixer -file <path-to-save-file> [fix-options]
-```
+1. **Launch the application** – Run `StarRuptureSaveFixer.exe`
+2. **Select a session** – Your save sessions are automatically detected and listed
+3. **Choose a save file** – Select the save you want to fix or manage
+4. **Apply fixes** – Click "Fix Drones" or "Remove All Drones" as needed
 
-### Parameters
-
-| Parameter | Description |
-|-----------|-------------|
-| `-file <path>` | **(Required)** Path to the `.sav` file to fix |
-| `-fixdrones` | Fix drone-related issues (removes drones with invalid targets) |
-| `-removedrones` | Remove all drones from the save file |
-
-> **Note:** `-fixdrones` and `-removedrones` cannot be used together.
-
-### Examples
-
-**Fix drones with invalid targets:**
-```bash
-StarRuptureSaveFixer -file "C:\path\to\your\save.sav" -fixdrones
-```
-
-**Remove all drones:**
-```bash
-StarRuptureSaveFixer -file "C:\path\to\your\save.sav" -removedrones
-```
-
-## How It Works
-
-Star Rupture save files use a custom format:
-1. **4-byte header** – Contains the uncompressed JSON size (little-endian)
-2. **Compressed payload** – zlib/deflate compressed JSON data
-
-The tool:
-1. Reads and decompresses the save file
-2. Parses the JSON structure to locate entity data
-3. Identifies problematic entities (e.g., drones with invalid movement targets)
-4. Removes or repairs the identified issues
-5. Recompresses and saves the fixed file with a `_fixed` suffix
+The application automatically backs up your original save before making any changes.
 
 ## Save File Location
 
 Star Rupture save files are typically located at:
 ```
-%LOCALAPPDATA%\StarRupture\Saves\
+C:\Program Files (x86)\Steam\userdata\<steam-id>\1631270\remote\Saved\SaveGames\
 ```
+
+The application automatically detects this path. If auto-detection fails, you can set a custom path in Settings.
+
+## How It Works
+
+Star Rupture save files use a custom compressed format:
+1. **4-byte header** – Contains the uncompressed JSON size (little-endian)
+2. **zlib wrapper** – 2-byte header (0x78 0x9C)
+3. **Deflate payload** – Compressed JSON game data
+4. **Adler32 checksum** – 4-byte integrity check
+
+The tool:
+1. Reads and decompresses the save file
+2. Parses the JSON structure to locate entity data
+3. Identifies problematic entities (drones with invalid movement targets)
+4. Removes or repairs the identified issues
+5. Recompresses with proper zlib format and saves the fixed file
 
 ## Project Structure
 
 ```
 StarRuptureSaveFixer/
-├── Program.cs              # Main entry point and CLI handling
+├── MainWindow.xaml           # Main application window
+├── Converters/               # WPF value converters
 ├── Fixers/
-│   ├── IFixer.cs           # Interface for save file fixers
-│   ├── DroneFixer.cs       # Fixes drones with invalid targets
-│   └── DroneRemover.cs     # Removes all drones
+│   ├── IFixer.cs             # Interface for save file fixers
+│   ├── DroneFixer.cs         # Fixes drones with invalid targets
+│   └── DroneRemover.cs       # Removes all drones
 ├── Models/
-│   └── SaveFile.cs         # Save file data model
+│   ├── SaveFile.cs           # Save file data model
+│   ├── SaveSession.cs        # Game session model
+│   ├── FtpSettings.cs        # FTP configuration
+│   └── AppSettings.cs        # Application settings
 ├── Services/
-│   └── SaveFileService.cs  # Save file loading/saving with compression
-└── Utils/
-    ├── ArgumentParser.cs   # Command-line argument parsing
-    └── ConsoleLogger.cs    # Colored console output utilities
+│   ├── SaveFileService.cs    # Save file compression/decompression
+│   ├── SessionManager.cs     # Game session management
+│   ├── FtpService.cs         # FTP operations
+│   ├── UpdateChecker.cs      # GitHub release checking
+│   └── SettingsService.cs    # Settings persistence
+├── ViewModels/               # MVVM view models
+└── Views/                    # XAML UI definitions
 ```
+
+## Configuration
+
+Application settings are stored at:
+```
+%APPDATA%\StarRuptureSaveFixer\settings.json
+```
+
+FTP passwords are encrypted using Windows Data Protection API (DPAPI) for security.
 
 ## Contributing
 
-Contributions are welcome! If you encounter a new type of save file corruption, please:
+Contributions are welcome! If you encounter a new type of save file corruption:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/new-fixer`)
@@ -114,7 +140,7 @@ Contributions are welcome! If you encounter a new type of save file corruption, 
 
 ## Disclaimer
 
-**Always backup your save files before using this tool.** While the tool preserves your original save file, unexpected issues may occur. Use at your own risk.
+**Always backup your save files before using this tool.** While the application creates automatic backups, unexpected issues may occur. Use at your own risk.
 
 ## Credits
 
