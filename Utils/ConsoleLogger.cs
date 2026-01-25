@@ -1,49 +1,48 @@
+using System;
+using System.Linq;
+
 namespace StarRuptureSaveFixer.Utils;
 
 /// <summary>
-/// Provides colored console logging with aligned tags
+/// Provides logging events for UI consumption. Previously wrote to console; now raises events so WPF UI can display progress.
 /// </summary>
 public static class ConsoleLogger
 {
-    private const int TagWidth = 9; // Width for "[WARNING]" which is the longest tag
+    /// <summary>
+    /// Raised for general log messages. Parameters: level, message
+    /// </summary>
+    public static event Action<string, string>? MessageLogged;
+
+    /// <summary>
+    /// Raised for progress/status updates intended for the UI's processing text field.
+    /// </summary>
+    public static event Action<string>? ProgressLogged;
 
     public static void Info(string message)
     {
-        WriteLog("INFO", ConsoleColor.Cyan, message);
+        MessageLogged?.Invoke("INFO", message);
     }
 
     public static void Success(string message)
     {
-        WriteLog("SUCCESS", ConsoleColor.Green, message);
+        MessageLogged?.Invoke("SUCCESS", message);
     }
 
     public static void Warning(string message)
     {
-        WriteLog("WARNING", ConsoleColor.Yellow, message);
+        MessageLogged?.Invoke("WARNING", message);
     }
 
     public static void Error(string message)
     {
-        WriteLog("ERROR", ConsoleColor.Red, message);
+        MessageLogged?.Invoke("ERROR", message);
     }
 
     public static void Progress(string message)
     {
-        WriteLog("PROGRESS", ConsoleColor.Magenta, message);
-    }
-
-    private static void WriteLog(string tag, ConsoleColor color, string message)
-    {
-        // Save original color
-        ConsoleColor originalColor = Console.ForegroundColor;
-
-        // Write colored tag with padding
-        Console.ForegroundColor = color;
-        Console.Write($"[{tag.PadRight(TagWidth - 2)}]");
-
-        // Reset to original color and write message
-        Console.ForegroundColor = originalColor;
-        Console.WriteLine($" {message}");
+        // Progress messages also surface as general log messages with level "PROGRESS"
+        //MessageLogged?.Invoke("PROGRESS", message);
+        ProgressLogged?.Invoke(message);
     }
 
     /// <summary>
@@ -51,7 +50,7 @@ public static class ConsoleLogger
     /// </summary>
     public static void Plain(string message)
     {
-        Console.WriteLine(message);
+        MessageLogged?.Invoke("", message);
     }
 
     /// <summary>
@@ -65,14 +64,11 @@ public static class ConsoleLogger
         // Find the longest line
         int maxLength = lines.Max(line => line?.Length ?? 0);
 
-        // Write each line
         foreach (string line in lines)
         {
-            Console.WriteLine(line);
+            MessageLogged?.Invoke("HEADER", line);
         }
 
-        // Write separator matching the longest line
-        Console.WriteLine(new string('=', maxLength));
-        Console.WriteLine();
+        MessageLogged?.Invoke("HEADER", new string('=', maxLength));
     }
 }

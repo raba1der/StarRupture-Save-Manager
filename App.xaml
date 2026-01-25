@@ -1,7 +1,11 @@
 <Application x:Class="StarRuptureSaveFixer.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:StarRuptureSaveFixer.Converters">
     <Application.Resources>
-
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:BackupColorConverter x:Key="BackupColorConverter"/>
+        <converters:BackupTypeConverter x:Key="BackupTypeConverter"/>
+        <converters:DirectoryColorConverter x:Key="DirectoryColorConverter"/>
     </Application.Resources>
 </Application>

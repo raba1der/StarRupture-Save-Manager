@@ -1,0 +1,35 @@
+<Window x:Class="StarRuptureSaveFixer.Views.SelectLocalSaveDialog"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="Select Local Save to Overwrite" Height="400" Width="500" WindowStartupLocation="CenterOwner">
+
+ <Grid Margin="10">
+ <Grid.RowDefinitions>
+ <RowDefinition Height="Auto"/>
+ <RowDefinition Height="*"/>
+ <RowDefinition Height="Auto"/>
+ </Grid.RowDefinitions>
+
+ <TextBlock Grid.Row="0" Text="Select which local .sav file to overwrite:" Margin="0,0,0,10"/>
+
+ <ListBox x:Name="FilesListBox" Grid.Row="1" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+ <ListBox.ItemTemplate>
+ <DataTemplate>
+ <StackPanel Orientation="Horizontal" Margin="5">
+ <TextBlock Text="{Binding FileName}" MinWidth="200" FontWeight="Bold"/>
+ <TextBlock Text=" (" Foreground="Gray"/>
+ <TextBlock Text="{Binding SessionName}" Foreground="Gray"/>
+ <TextBlock Text=")" Foreground="Gray" Margin="0,0,10,0"/>
+ <TextBlock Text="{Binding FileSizeDisplay}" Foreground="Gray" Margin="10,0,0,0"/>
+ <TextBlock Text="{Binding LastModifiedDisplay}" Foreground="Gray" Margin="10,0,0,0"/>
+ </StackPanel>
+ </DataTemplate>
+ </ListBox.ItemTemplate>
+ </ListBox>
+
+ <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+ <Button x:Name="OkButton" Content="OK" Width="100" Margin="5" Click="OkButton_Click" IsEnabled="False"/>
+ <Button Content="Cancel" Width="100" Margin="5" Click="CancelButton_Click"/>
+ </StackPanel>
+ </Grid>
+</Window>
