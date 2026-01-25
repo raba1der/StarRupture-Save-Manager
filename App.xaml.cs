@@ -8,6 +8,7 @@ public partial class App : Application
     public static void Main()
     {
         var app = new App();
+        app.InitializeComponent();
         app.Run(new MainWindow());
     }
 }

@@ -99,3 +99,4 @@ _ReSharper*/
 # AI Nonsense
 # =====================================
 tmpclaude*
+.claude/settings.local.json

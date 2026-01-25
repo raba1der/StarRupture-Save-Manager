@@ -1,19 +1,14 @@
-using StarRuptureSaveFixer.ViewModels;
 using System.Diagnostics;
-using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Navigation;
 
-namespace StarRuptureSaveFixer;
+namespace StarRuptureSaveFixer.Views;
 
-public partial class MainWindow : Window
+public partial class SettingsView : UserControl
 {
-    private readonly MainViewModel _viewModel;
-
-    public MainWindow()
+    public SettingsView()
     {
         InitializeComponent();
-        _viewModel = new MainViewModel();
-        DataContext = _viewModel;
     }
 
     private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
@@ -31,15 +26,5 @@ public partial class MainWindow : Window
         {
             // Ignore errors opening browser
         }
-    }
-
-    private void UpdateButton_Click(object sender, RoutedEventArgs e)
-    {
-        _viewModel.OpenUpdatePage();
-    }
-
-    private void FtpUploadView_Loaded(object sender, RoutedEventArgs e)
-    {
-
     }
 }

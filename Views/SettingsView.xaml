@@ -1,0 +1,108 @@
+<UserControl x:Class="StarRuptureSaveFixer.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <Style TargetType="Button" x:Key="ActionButton">
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="MinWidth" Value="100"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Save Location Settings -->
+        <GroupBox Grid.Row="0" Header="Save File Location" Padding="15" Margin="0,0,0,15">
+            <StackPanel>
+                <!-- Auto-detected path -->
+                <StackPanel Margin="0,0,0,15">
+                    <TextBlock Text="Auto-detected path:" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding AutoDetectedPath, Mode=OneWay}"
+                             IsReadOnly="True"
+                             Background="#F0F0F0"
+                             Padding="8"
+                             FontFamily="Consolas"/>
+                </StackPanel>
+
+                <!-- Use custom path option -->
+                <CheckBox Content="Use custom save path"
+                          IsChecked="{Binding UseCustomPath}"
+                          Margin="0,0,0,10"/>
+
+                <!-- Custom path input -->
+                <StackPanel IsEnabled="{Binding UseCustomPath}">
+                    <TextBlock Text="Custom path:" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding CustomSavePath, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="8"
+                                 FontFamily="Consolas"/>
+                        <Button Grid.Column="1"
+                                Content="Browse..."
+                                Command="{Binding BrowseCommand}"
+                                Style="{StaticResource ActionButton}"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Effective path display -->
+                <StackPanel Margin="0,15,0,0">
+                    <TextBlock Text="Currently using:" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding EffectivePath, Mode=OneWay}"
+                             IsReadOnly="True"
+                             Background="#E8F5E9"
+                             Padding="8"
+                             FontFamily="Consolas"
+                             FontWeight="Bold"/>
+                </StackPanel>
+
+                <!-- Action buttons -->
+                <StackPanel Orientation="Horizontal" Margin="0,15,0,0">
+                    <Button Content="Save Settings"
+                            Command="{Binding SaveCommand}"
+                            Style="{StaticResource ActionButton}"
+                            Background="#4CAF50"
+                            Foreground="White"
+                            FontWeight="Bold"/>
+                    <Button Content="Reset to Auto-Detect"
+                            Command="{Binding ResetToAutoCommand}"
+                            Style="{StaticResource ActionButton}"/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- About Section -->
+        <GroupBox Grid.Row="1" Header="About" Padding="15">
+            <StackPanel>
+                <TextBlock Text="Star Rupture Save File Manager" FontSize="16" FontWeight="Bold"/>
+                <TextBlock Text="Version 2.0.0" Foreground="Gray" Margin="0,5,0,0"/>
+                <TextBlock Text="By AlienX" Margin="0,10,0,0"/>
+                <TextBlock Margin="0,5,0,0">
+                    <Hyperlink NavigateUri="https://StarRupture-Utilities.com"
+                               RequestNavigate="Hyperlink_RequestNavigate"
+                               Foreground="DodgerBlue">
+                        StarRupture-Utilities.com
+                    </Hyperlink>
+                </TextBlock>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Bottom"
+                   Margin="0,10,0,0"
+                   Foreground="Green"
+                   FontWeight="Bold"/>
+    </Grid>
+</UserControl>

@@ -43,42 +43,48 @@ public class DroneFixer : IFixer
                 return false;
             }
 
-            // First pass: count total drones
-            int totalDrones = 0;
-            foreach (var entity in entities.Properties().ToList())
+            // Collect properties once
+            var props = entities.Properties().ToList();
+            int totalEntities = props.Count;
+            ConsoleLogger.Progress($"Scanning {totalEntities} entities for drone candidates...");
+
+            // First pass: collect drone candidates while reporting progress
+            var droneCandidates = new List<JProperty>();
+            for (int i = 0; i < props.Count; i++)
             {
-                if (IsDroneEntity(entity.Value, out _))
+                var prop = props[i];
+
+                if (IsDroneEntity(prop.Value, out _))
                 {
-                    totalDrones++;
+                    droneCandidates.Add(prop);
+                }
+
+                // Periodically report scanning progress so UI doesn't look frozen
+                if (i % 50 == 0 || i == props.Count - 1)
+                {
+                    ConsoleLogger.Progress($"Scanning entities: {i + 1}/{totalEntities}");
                 }
             }
 
+            int totalDrones = droneCandidates.Count;
             ConsoleLogger.Info($"Found {totalDrones} drone(s) to check.");
             ConsoleLogger.Plain("");
 
-            // Find all drone entities and check their validity
+            // Find all drone entities and check their validity with detailed progress
             List<string> dronesToDelete = new();
-            int dronesChecked = 0;
-            char[] spinner = new[] { '|', '/', '-', '\\' };
-            int spinnerIndex = 0;
 
-            foreach (var entity in entities.Properties().ToList())
+            for (int idx = 0; idx < droneCandidates.Count; idx++)
             {
+                var entity = droneCandidates[idx];
                 string entityKey = entity.Name;
                 JToken entityValue = entity.Value;
 
-                // Check if this is a drone entity
+                // Report which drone we're checking
+                ConsoleLogger.Progress($"Checking drone {idx + 1}/{totalDrones}: {entityKey}");
+
+                // Extract movement IDs from the logistics fragment
                 if (IsDroneEntity(entityValue, out string? logisticsFragment))
                 {
-                    dronesChecked++;
-
-                    // Display progress with spinner
-                    Console.Write($"\rProcessing {dronesChecked}/{totalDrones} drones {spinner[spinnerIndex]}");
-                    spinnerIndex = (spinnerIndex + 1) % spinner.Length;
-
-                    System.Threading.Thread.Sleep(10); // Simulate processing time
-
-                    // Extract movement IDs from the logistics fragment
                     if (ExtractMovementIds(logisticsFragment!, out int? currentMovementStart, out int? currentMovementTarget))
                     {
                         // Check if CurrentMovementTarget points to a valid entity
@@ -92,11 +98,12 @@ public class DroneFixer : IFixer
                         }
                     }
                 }
+
+                // Optional tiny pause to keep UI responsive if needed
+                // System.Threading.Thread.Sleep(0);
             }
 
-            // Clear the progress line
-            Console.Write("\r" + new string(' ', 50) + "\r");
-            ConsoleLogger.Info($"Checked {dronesChecked} drone(s).");
+            ConsoleLogger.Info($"Checked {dronesToDelete.Count + (totalDrones - dronesToDelete.Count)}/{totalDrones} drone(s).");
             ConsoleLogger.Info($"Found {dronesToDelete.Count} invalid drone(s) to delete.");
 
             // Delete invalid drones
@@ -110,7 +117,7 @@ public class DroneFixer : IFixer
                 // Serialize back to JSON without formatting
                 saveFile.JsonContent = root.ToString(Newtonsoft.Json.Formatting.None);
 
-                ConsoleLogger.Success($"Successfully removed {dronesToDelete.Count} invalid drone(s).");
+                ConsoleLogger.Success($"Successfully removed {dronesToDelete.Count} invalid drone(s).\n");
                 return true;
             }
             else
