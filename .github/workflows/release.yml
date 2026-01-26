@@ -89,25 +89,25 @@ jobs:
           ---
           
           ## Installation
- 
+     
           1. Download `StarRuptureSaveFixer.exe` below
           2. Run the executable (no installation required)
           3. The app will auto-detect your Steam save location
           
-       ## Usage
+          ## Usage 
         
           - **Save Browser**: Fix corrupted save files
           - **Session Manager**: Copy saves between game sessions
           - **FTP Sync**: Upload/download saves to remote server
           
-      **Note**: Original files are automatically backed up as `*_original.sav`
+          **Note**: Original files are automatically backed up as `*_original.sav`
   
           ---
           
           Visit [StarRupture-Utilities.com](https://StarRupture-Utilities.com) for more information!
         files: |
           ./publish/StarRuptureSaveFixer.exe
-        draft: false
+      draft: false
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
