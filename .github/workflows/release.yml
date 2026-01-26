@@ -2,22 +2,20 @@ name: Build and Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
     paths:
-      - '**.cs'
-      - '**.xaml'
-      - '**.csproj'
-      - '**.sln'
+      - '**/*.cs'
+      - '**/*.xaml'
+      - '**/*.csproj'
+      - '**/*.sln'
       - '.github/workflows/**'
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
     paths:
-      - '**.cs'
-      - '**.xaml'
-      - '**.csproj'
-      - '**.sln'
+      - '**/*.cs'
+      - '**/*.xaml'
+      - '**/*.csproj'
+      - '**/*.sln'
       - '.github/workflows/**'
 
 permissions:
@@ -28,86 +26,86 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Fetch all history for changelog generation
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore
+      - name: Restore dependencies
+        run: dotnet restore
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
 
-    - name: Publish
-      run: dotnet publish --configuration Release --no-build --output ./publish
+      - name: Publish
+        run: dotnet publish --configuration Release --no-build --output ./publish
 
-    - name: Get version and changelog
-      id: version
-      shell: pwsh
-      run: |
-        # Get version from build number
-        $version = "v1.0.${{ github.run_number }}"
-        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-        
-        # Get previous tag
-        $previousTag = git describe --tags --abbrev=0 2>$null
-        if (-not $previousTag) {
-          $previousTag = git rev-list --max-parents=0 HEAD
-        }
-        
-        # Generate changelog from commit messages
-        $commits = git log "$previousTag..HEAD" --pretty=format:"- %s" --no-merges
-        
-        # Create changelog content
-        $changelog = @"
-        ## What's Changed
-        
-        $commits
-        "@
-        
-        # Escape for GitHub Actions
-        $changelog = $changelog -replace "`r`n", "%0A" -replace "`n", "%0A"
-        echo "CHANGELOG=$changelog" >> $env:GITHUB_OUTPUT
+      - name: Get version and changelog
+        id: version
+        shell: pwsh
+        run: |
+          # Get version from build number
+          $version = "v1.0.${{ github.run_number }}"
+          "VERSION=$version" >> $env:GITHUB_OUTPUT
 
-    - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.version.outputs.VERSION }}
-        name: Release ${{ steps.version.outputs.VERSION }}
-        body: |
-          # Star Rupture Save Manager - ${{ steps.version.outputs.VERSION }}
+          # Get previous tag (if none, use first commit)
+          $previousTag = git describe --tags --abbrev=0 2>$null
+          if (-not $previousTag) {
+            $previousTag = git rev-list --max-parents=0 HEAD
+          }
 
-          ${{ steps.version.outputs.CHANGELOG }}
-       
-          ---
-          
-          ## Installation
-     
-          1. Download `StarRuptureSaveFixer.exe` below
-          2. Run the executable (no installation required)
-          3. The app will auto-detect your Steam save location
-          
-          ## Usage 
-        
-          - **Save Browser**: Fix corrupted save files
-          - **Session Manager**: Copy saves between game sessions
-          - **FTP Sync**: Upload/download saves to remote server
-          
-          **Note**: Original files are automatically backed up as `*_original.sav`
-  
-          ---
-          
-          Visit [StarRupture-Utilities.com](https://StarRupture-Utilities.com) for more information!
-        files: |
-          ./publish/StarRuptureSaveFixer.exe
-      draft: false
-      prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Generate changelog from commit messages
+          $commits = git log "$previousTag..HEAD" --pretty=format:"- %s" --no-merges
+
+          $changelog = @"
+          ## What's Changed
+
+          $commits
+          "@
+
+          # Multiline output (recommended)
+          "CHANGELOG<<EOF" >> $env:GITHUB_OUTPUT
+          $changelog >> $env:GITHUB_OUTPUT
+          "EOF" >> $env:GITHUB_OUTPUT
+
+      - name: Create Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            # Star Rupture Save Manager - ${{ steps.version.outputs.VERSION }}
+
+            ${{ steps.version.outputs.CHANGELOG }}
+
+            ---
+
+            ## Installation
+
+            1. Download `StarRuptureSaveFixer.exe` below
+            2. Run the executable (no installation required)
+            3. The app will auto-detect your Steam save location
+
+            ## Usage
+
+            - **Save Browser**: Fix corrupted save files
+            - **Session Manager**: Copy saves between game sessions
+            - **FTP Sync**: Upload/download saves to remote server
+
+            **Note**: Original files are automatically backed up as `*_original.sav`
+
+            ---
+
+            Visit [StarRupture-Utilities.com](https://StarRupture-Utilities.com) for more information!
+          files: |
+            ./publish/StarRuptureSaveFixer.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
