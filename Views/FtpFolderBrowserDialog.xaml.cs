@@ -17,6 +17,8 @@ public partial class FtpFolderBrowserDialog : Window
     private CancellationTokenSource? _cts;
     private bool _isLoading;
 
+    private const string REMOTE_SAVEGAMES_PATH = "/StarRupture/Saved/SaveGames";
+
     public string SelectedPath { get; private set; } = "/";
     public ObservableCollection<FtpDirectoryItem> Items { get; } = new();
 
@@ -31,25 +33,72 @@ public partial class FtpFolderBrowserDialog : Window
 
         FolderListBox.ItemsSource = Items;
 
+        // Set window title based on protocol
+        Title = GetProtocolDisplayName() + " - Browse Remote Folder";
+
         Loaded += OnLoaded;
         Closing += OnClosing;
     }
 
+    private string GetProtocolDisplayName()
+    {
+        return _settings.Protocol switch
+        {
+            FileTransferProtocol.FTP => "FTP",
+            FileTransferProtocol.FTPS => "FTPS",
+            FileTransferProtocol.SFTP => "SFTP",
+            _ => "FTP"
+        };
+    }
+
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Don't block the dialog from showing - test connection after it's visible
+        await Task.Yield(); // Allow UI to render
+
         // Test connection first before loading directory
         if (!await TestConnectionAsync())
         {
-            StatusTextBlock.Text = "Connection failed. Please check your FTP settings.";
+            StatusTextBlock.Text = $"Connection failed. Please check your {GetProtocolDisplayName()} settings.";
             SelectButton.IsEnabled = false;
 
-            // Close the dialog since connection failed
+            // Show error message and close
+            await Task.Delay(100); // Brief delay to ensure message is visible
             DialogResult = false;
             Close();
             return;
         }
 
-        await LoadDirectoryAsync(_initialPath);
+        // Try to auto-detect StarRupture save games path
+        string pathToLoad = await TryDetectSaveGamesPathAsync();
+
+        await LoadDirectoryAsync(pathToLoad);
+    }
+
+    private async Task<string> TryDetectSaveGamesPathAsync()
+    {
+        // If an initial path was explicitly provided, use it
+        if (!string.IsNullOrEmpty(_initialPath) && _initialPath != "/")
+            return _initialPath;
+
+        Dispatcher.Invoke(() => StatusTextBlock.Text = "Detecting StarRupture save folder...");
+
+        try
+        {
+            var exists = await _ftpService.RemotePathExistsAsync(REMOTE_SAVEGAMES_PATH, _settings, _password);
+            if (exists)
+            {
+                Dispatcher.Invoke(() => StatusTextBlock.Text = "Found StarRupture save folder!");
+                return REMOTE_SAVEGAMES_PATH;
+            }
+        }
+        catch
+        {
+            // Silently fail and fall back to root
+        }
+
+        Dispatcher.Invoke(() => StatusTextBlock.Text = "Starting at root folder");
+        return "/";
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -63,8 +112,9 @@ public partial class FtpFolderBrowserDialog : Window
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
-        SetLoading(true, "Testing connection...");
-        StatusTextBlock.Text = "Testing connection...";
+        var protocolName = GetProtocolDisplayName();
+        SetLoading(true, $"Testing {protocolName} connection...");
+        StatusTextBlock.Text = $"Testing {protocolName} connection...";
 
         try
         {
@@ -75,12 +125,12 @@ public partial class FtpFolderBrowserDialog : Window
 
             if (!success)
             {
-                StatusTextBlock.Text = $"Connection failed: {message}";
-                MessageBox.Show($"Failed to connect to FTP server:\n\n{message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusTextBlock.Text = $"{protocolName} connection failed: {message}";
+                MessageBox.Show($"Failed to connect to {protocolName} server:\n\n{message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
 
-            StatusTextBlock.Text = "Connection successful";
+            StatusTextBlock.Text = $"{protocolName} connection successful";
             return true;
         }
         catch (OperationCanceledException)
@@ -90,8 +140,8 @@ public partial class FtpFolderBrowserDialog : Window
         }
         catch (Exception ex)
         {
-            StatusTextBlock.Text = $"Connection error: {ex.Message}";
-            MessageBox.Show($"Failed to connect to FTP server:\n\n{ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusTextBlock.Text = $"{GetProtocolDisplayName()} connection error: {ex.Message}";
+            MessageBox.Show($"Failed to connect to {GetProtocolDisplayName()} server:\n\n{ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return false;
         }
         finally
@@ -129,7 +179,8 @@ public partial class FtpFolderBrowserDialog : Window
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
-        SetLoading(true, "Connecting to server...");
+        var protocolName = GetProtocolDisplayName();
+        SetLoading(true, $"Connecting to {protocolName} server...");
         StatusTextBlock.Text = "Connecting...";
         Items.Clear();
 

@@ -36,6 +36,7 @@ A Windows desktop application for managing and repairing save files for the game
 - **Auto-detection** – Automatically locates your Steam save game folder
 - **Auto-updates** – Checks GitHub for new releases and notifies you when updates are available
 - **Progress Logging** – Real-time feedback during all operations
+- **Diagnostic Logging** – Comprehensive logs saved to `%LOCALAPPDATA%\SRSM\` for troubleshooting
 
 ## Interface
 
@@ -136,6 +137,19 @@ Application settings are stored at:
 ```
 
 FTP passwords are encrypted using Windows Data Protection API (DPAPI) for security.
+
+Diagnostic logs are stored at:
+```
+%LOCALAPPDATA%\SRSM\YYYY-MM-DD_HH-mm-ss.log
+```
+
+Log files contain detailed information about all operations performed by the application, including:
+- FTP/SFTP connection attempts and file transfers
+- Save file loading, processing, and saving operations
+- Application errors and warnings
+- Session management activities
+
+**Note**: Passwords are never logged for security. Log files are created per session and include timestamps for easy troubleshooting.
 
 ## Contributing
 

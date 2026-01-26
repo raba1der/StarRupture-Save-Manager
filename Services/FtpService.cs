@@ -11,11 +11,26 @@ namespace StarRuptureSaveFixer.Services;
 
 public partial class FtpService
 {
+    private readonly SftpService _sftpService = new();
+    private readonly LoggingService _logger = LoggingService.Instance;
+
+    private bool IsSftp(FtpSettings settings) => settings.Protocol == FileTransferProtocol.SFTP;
+
     public async Task<(bool Success, string Message)> TestConnectionAsync(
         FtpSettings settings,
         string password,
         CancellationToken cancellationToken = default)
     {
+        var protocolName = settings.Protocol.ToString();
+        _logger.LogFtpOperation("TestConnection", settings.Host, settings.Port, protocolName, $"Username: {settings.Username}");
+
+        if (IsSftp(settings))
+        {
+            var result = await _sftpService.TestConnectionAsync(settings, password, cancellationToken);
+            _logger.LogInfo($"SFTP connection test result: {result.Success} - {result.Message}", "FtpService");
+            return result;
+        }
+
         try
         {
             using var client = CreateClient(settings, password);
@@ -24,17 +39,21 @@ public partial class FtpService
             if (client.IsConnected)
             {
                 await client.Disconnect(cancellationToken).ConfigureAwait(false);
+                _logger.LogInfo($"FTP connection successful to {settings.Host}:{settings.Port}", "FtpService");
                 return (true, "Connection successful!");
             }
 
+            _logger.LogWarning($"FTP connection failed to {settings.Host}:{settings.Port}", "FtpService");
             return (false, "Failed to connect to server.");
         }
         catch (OperationCanceledException)
         {
+            _logger.LogWarning($"FTP connection cancelled to {settings.Host}:{settings.Port}", "FtpService");
             return (false, "Connection cancelled.");
         }
         catch (Exception ex)
         {
+            _logger.LogError($"FTP connection error to {settings.Host}:{settings.Port}", ex, "FtpService");
             return (false, $"Connection failed: {ex.Message}");
         }
     }
@@ -46,6 +65,9 @@ public partial class FtpService
         string password,
         IProgress<(int Percent, string Status)>? progress = null)
     {
+        if (IsSftp(settings))
+            return await _sftpService.UploadFileAsync(localPath, remotePath, settings, password, progress);
+
         try
         {
             using var client = CreateClient(settings, password);
@@ -103,6 +125,9 @@ public partial class FtpService
         string password,
         IProgress<(int Percent, string Status)>? progress = null)
     {
+        if (IsSftp(settings))
+            return await _sftpService.UploadFilesAsync(localPaths, remotePath, settings, password, progress);
+
         var files = localPaths.ToList();
         if (files.Count == 0)
             return (true, 0, 0);
@@ -173,6 +198,15 @@ public partial class FtpService
         string password,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogFtpOperation("ListDirectory", settings.Host, settings.Port, settings.Protocol.ToString(), $"Path: {remotePath}");
+
+        if (IsSftp(settings))
+        {
+            var result = await _sftpService.ListRemoteDirectoryAsync(remotePath, settings, password, cancellationToken);
+            _logger.LogInfo($"SFTP directory listing returned {result.Count} items", "FtpService");
+            return result;
+        }
+
         var items = new List<FtpDirectoryItem>();
 
         try
@@ -183,7 +217,10 @@ public partial class FtpService
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!client.IsConnected)
+            {
+                _logger.LogWarning("FTP client not connected for directory listing", "FtpService");
                 return items;
+            }
 
             var listing = await client.GetListing(remotePath, cancellationToken).ConfigureAwait(false);
 
@@ -202,13 +239,16 @@ public partial class FtpService
             }
 
             await client.Disconnect(cancellationToken).ConfigureAwait(false);
+            _logger.LogInfo($"FTP directory listing returned {items.Count} items from {remotePath}", "FtpService");
         }
         catch (OperationCanceledException)
         {
+            _logger.LogWarning("FTP directory listing cancelled", "FtpService");
             throw; // Re-throw cancellation
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError($"FTP directory listing error for {remotePath}", ex, "FtpService");
             // Return empty list on other errors
         }
 
@@ -224,64 +264,80 @@ public partial class FtpService
         IProgress<(int Percent, string Status)>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogFtpOperation("UploadFileAs", settings.Host, settings.Port, settings.Protocol.ToString(), 
+   $"Remote: {remotePath}/{remoteFileName}");
+        _logger.LogFileOperation("Upload", localPath, new FileInfo(localPath).Length);
+
+        if (IsSftp(settings))
+     {
+      var result = await _sftpService.UploadFileAsAsync(localPath, remotePath, remoteFileName, settings, password, progress, cancellationToken);
+    _logger.LogInfo($"SFTP upload result: {result}", "FtpService");
+            return result;
+        }
+
         try
-        {
-            using var client = CreateClient(settings, password);
+ {
+      using var client = CreateClient(settings, password);
 
-            progress?.Report((0, "Connecting..."));
-            await client.Connect(cancellationToken).ConfigureAwait(false);
+        progress?.Report((0, "Connecting..."));
+  await client.Connect(cancellationToken).ConfigureAwait(false);
 
-            cancellationToken.ThrowIfCancellationRequested();
+     cancellationToken.ThrowIfCancellationRequested();
 
-            if (!client.IsConnected)
-            {
-                progress?.Report((0, "Failed to connect"));
-                return false;
-            }
+   if (!client.IsConnected)
+   {
+    progress?.Report((0, "Failed to connect"));
+     _logger.LogWarning("FTP client failed to connect during upload", "FtpService");
+    return false;
+  }
 
-            var fullRemotePath = CombineRemotePath(remotePath, remoteFileName);
+  var fullRemotePath = CombineRemotePath(remotePath, remoteFileName);
 
-            progress?.Report((10, $"Uploading as {remoteFileName}..."));
+   progress?.Report((10, $"Uploading as {remoteFileName}..."));
 
-            client.Config.TransferChunkSize = 65536;
+   client.Config.TransferChunkSize = 65536;
 
             var result = await client.UploadFile(
-                localPath,
-                fullRemotePath,
-                FtpRemoteExists.NoCheck,
-                createRemoteDir: true,
-                progress: new Progress<FtpProgress>(p =>
-                {
-                    if (!cancellationToken.IsCancellationRequested)
-                    {
-                        var percent = 10 + (int)(p.Progress * 0.85);
-                        progress?.Report((percent, $"Uploading as {remoteFileName}... {p.Progress:F0}%"));
-                    }
-                }),
-                token: cancellationToken).ConfigureAwait(false);
+      localPath,
+      fullRemotePath,
+  FtpRemoteExists.NoCheck,
+     createRemoteDir: true,
+    progress: new Progress<FtpProgress>(p =>
+   {
+      if (!cancellationToken.IsCancellationRequested)
+ {
+      var percent = 10 + (int)(p.Progress * 0.85);
+       progress?.Report((percent, $"Uploading as {remoteFileName}... {p.Progress:F0}%"));
+          }
+   }),
+   token: cancellationToken).ConfigureAwait(false);
 
-            cancellationToken.ThrowIfCancellationRequested();
+        cancellationToken.ThrowIfCancellationRequested();
 
             await client.Disconnect(cancellationToken).ConfigureAwait(false);
 
-            if (result == FtpStatus.Success)
-            {
-                progress?.Report((100, $"Successfully uploaded as {remoteFileName}!"));
-                return true;
-            }
+      if (result == FtpStatus.Success)
+       {
+       progress?.Report((100, $"Successfully uploaded as {remoteFileName}!"));
+           _logger.LogInfo($"FTP upload successful: {remoteFileName}", "FtpService");
+    return true;
+   }
 
-            progress?.Report((0, $"Upload failed: {result}"));
-            return false;
-        }
+  progress?.Report((0, $"Upload failed: {result}"));
+            _logger.LogWarning($"FTP upload failed: {result}", "FtpService");
+   return false;
+     }
         catch (OperationCanceledException)
         {
-            progress?.Report((0, "Upload cancelled."));
-            throw;
+   progress?.Report((0, "Upload cancelled."));
+    _logger.LogWarning("FTP upload cancelled", "FtpService");
+ throw;
         }
         catch (Exception ex)
         {
-            progress?.Report((0, $"Upload error: {ex.Message}"));
-            return false;
+      progress?.Report((0, $"Upload error: {ex.Message}"));
+    _logger.LogError("FTP upload error", ex, "FtpService");
+    return false;
         }
     }
 
@@ -291,6 +347,9 @@ public partial class FtpService
         string password,
         CancellationToken cancellationToken = default)
     {
+        if (IsSftp(settings))
+            return await _sftpService.RemotePathExistsAsync(remotePath, settings, password, cancellationToken);
+
         try
         {
             using var client = CreateClient(settings, password);
@@ -323,6 +382,9 @@ public partial class FtpService
         IProgress<(int Percent, string Status)>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        if (IsSftp(settings))
+            return await _sftpService.DownloadDirectoryAsync(remotePath, localPath, settings, password, progress, cancellationToken);
+
         try
         {
             using var client = CreateClient(settings, password);
@@ -402,56 +464,73 @@ public partial class FtpService
         IProgress<(int Percent, string Status)>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        try
+        _logger.LogFtpOperation("DownloadFile", settings.Host, settings.Port, settings.Protocol.ToString(), 
+  $"Remote: {remoteFilePath}");
+        _logger.LogFileOperation("Download", localFilePath);
+
+        if (IsSftp(settings))
         {
-            using var client = CreateClient(settings, password);
+   var result = await _sftpService.DownloadFileAsync(remoteFilePath, localFilePath, settings, password, progress, cancellationToken);
+   _logger.LogInfo($"SFTP download result: {result}", "FtpService");
+            return result;
+ }
 
-            progress?.Report((0, "Connecting..."));
-            await client.Connect(cancellationToken).ConfigureAwait(false);
+      try
+     {
+     using var client = CreateClient(settings, password);
 
-            if (!client.IsConnected)
-            {
-                progress?.Report((0, "Failed to connect"));
-                return false;
-            }
+   progress?.Report((0, "Connecting..."));
+  await client.Connect(cancellationToken).ConfigureAwait(false);
 
-            // Ensure local directory exists
-            var localDir = Path.GetDirectoryName(localFilePath);
-            if (!string.IsNullOrEmpty(localDir))
-                Directory.CreateDirectory(localDir);
+        if (!client.IsConnected)
+ {
+    progress?.Report((0, "Failed to connect"));
+     _logger.LogWarning("FTP client failed to connect during download", "FtpService");
+  return false;
+    }
 
-            client.Config.TransferChunkSize = 65536;
+      // Ensure local directory exists
+    var localDir = Path.GetDirectoryName(localFilePath);
+     if (!string.IsNullOrEmpty(localDir))
+    Directory.CreateDirectory(localDir);
 
-            var result = await client.DownloadFile(
-                localFilePath,
-                remoteFilePath,
-                FtpLocalExists.Overwrite,
-                progress: new Progress<FtpProgress>(p =>
-                {
-                    var percent = (int)(p.Progress);
-                    progress?.Report((percent, $"Downloading {Path.GetFileName(remoteFilePath)}... {percent}%"));
-                }),
-                token: cancellationToken).ConfigureAwait(false);
+     client.Config.TransferChunkSize = 65536;
 
-            await client.Disconnect(cancellationToken).ConfigureAwait(false);
+    var result = await client.DownloadFile(
+     localFilePath,
+    remoteFilePath,
+   FtpLocalExists.Overwrite,
+      progress: new Progress<FtpProgress>(p =>
+   {
+var percent = (int)(p.Progress);
+      progress?.Report((percent, $"Downloading {Path.GetFileName(remoteFilePath)}... {percent}%"));
+     }),
+    token: cancellationToken).ConfigureAwait(false);
 
-            if (result == FtpStatus.Success || result == FtpStatus.Skipped)
-            {
-                progress?.Report((100, "Download complete"));
-                return true;
-            }
+    await client.Disconnect(cancellationToken).ConfigureAwait(false);
 
-            progress?.Report((0, $"Download failed: {result}"));
-            return false;
-        }
+    if (result == FtpStatus.Success || result == FtpStatus.Skipped)
+      {
+   progress?.Report((100, "Download complete"));
+     _logger.LogInfo($"FTP download successful: {Path.GetFileName(remoteFilePath)}", "FtpService");
+    _logger.LogFileOperation("Downloaded", localFilePath, new FileInfo(localFilePath).Length);
+         return true;
+  }
+
+    progress?.Report((0, $"Download failed: {result}"));
+       _logger.LogWarning($"FTP download failed: {result}", "FtpService");
+   return false;
+ }
         catch (OperationCanceledException)
         {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            progress?.Report((0, $"Download error: {ex.Message}"));
-            return false;
+   _logger.LogWarning("FTP download cancelled", "FtpService");
+  throw;
+ }
+catch (Exception ex)
+     {
+  progress?.Report((0, $"Download error: {ex.Message}"));
+        _logger.LogError("FTP download error", ex, "FtpService");
+    return false;
         }
     }
 
@@ -459,7 +538,7 @@ public partial class FtpService
     {
         var client = new AsyncFtpClient(settings.Host, settings.Username, password, settings.Port);
 
-        client.Config.EncryptionMode = settings.UseFtps
+        client.Config.EncryptionMode = settings.Protocol == FileTransferProtocol.FTPS
             ? FtpEncryptionMode.Explicit
             : FtpEncryptionMode.None;
 

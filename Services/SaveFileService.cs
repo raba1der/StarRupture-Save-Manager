@@ -10,6 +10,8 @@ namespace StarRuptureSaveFixer.Services;
 /// </summary>
 public class SaveFileService
 {
+    private readonly LoggingService _logger = LoggingService.Instance;
+
     /// <summary>
     /// Loads a .sav file and extracts the JSON content to memory
     /// </summary>
@@ -17,20 +19,26 @@ public class SaveFileService
     /// <returns>SaveFile object with decompressed JSON content</returns>
     public SaveFile LoadSaveFile(string filePath)
     {
+        _logger.LogFileOperation("LoadSaveFile", filePath);
+
         if (!File.Exists(filePath))
         {
+            _logger.LogError($"Save file not found: {filePath}", null, "SaveFileService");
             throw new FileNotFoundException($"Save file not found: {filePath}");
         }
 
         byte[] fileData = File.ReadAllBytes(filePath);
+        _logger.LogInfo($"Read {fileData.Length} bytes from save file", "SaveFileService");
 
         if (fileData.Length < 4)
         {
+            _logger.LogError("Save file too small", null, "SaveFileService");
             throw new InvalidDataException("Save file is too small. Expected at least 4 bytes for JSON size header.");
         }
 
         // Read the first 4 bytes as the JSON size (little-endian)
         int jsonSize = BitConverter.ToInt32(fileData, 0);
+        _logger.LogInfo($"JSON size from header: {jsonSize} bytes", "SaveFileService");
 
         // Extract the compressed data (everything after the first 4 bytes)
         byte[] compressedData = new byte[fileData.Length - 4];
@@ -38,6 +46,7 @@ public class SaveFileService
 
         // Decompress the zlib data (raw deflate, no header)
         string jsonContent = DecompressZlibRaw(compressedData);
+        _logger.LogInfo($"Decompressed JSON content: {jsonContent.Length} characters", "SaveFileService");
 
         return new SaveFile
         {
@@ -54,9 +63,11 @@ public class SaveFileService
     public void SaveSaveFile(SaveFile saveFile, string? outputPath = null)
     {
         string targetPath = outputPath ?? saveFile.FilePath;
+        _logger.LogFileOperation("SaveSaveFile", targetPath);
 
         // Compress the JSON content using zlib raw deflate
         byte[] compressedData = CompressZlibRaw(saveFile.JsonContent);
+        _logger.LogInfo($"Compressed data size: {compressedData.Length} bytes", "SaveFileService");
 
         // Get the JSON size in bytes
         byte[] jsonSizeBytes = BitConverter.GetBytes(Encoding.UTF8.GetByteCount(saveFile.JsonContent));
@@ -68,6 +79,7 @@ public class SaveFileService
 
         // Write to file
         File.WriteAllBytes(targetPath, finalData);
+        _logger.LogFileOperation("SavedFile", targetPath, finalData.Length);
     }
 
     /// <summary>

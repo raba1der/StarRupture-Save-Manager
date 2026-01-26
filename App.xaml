@@ -4,6 +4,7 @@
              xmlns:converters="clr-namespace:StarRuptureSaveFixer.Converters">
     <Application.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:EnumToIndexConverter x:Key="EnumToIndexConverter"/>
         <converters:BackupColorConverter x:Key="BackupColorConverter"/>
         <converters:BackupTypeConverter x:Key="BackupTypeConverter"/>
         <converters:DirectoryColorConverter x:Key="DirectoryColorConverter"/>

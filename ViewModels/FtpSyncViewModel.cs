@@ -20,8 +20,7 @@ public class FtpSyncViewModel : ViewModelBase
     private string _username = "";
     private string _password = "";
     private string _remotePath = "/";
-    private bool _useFtps;
-    private bool _passiveMode = true;
+    private FileTransferProtocol _protocol = FileTransferProtocol.FTP;
 
     // Connection test fields
     private bool _isTesting;
@@ -46,6 +45,9 @@ public class FtpSyncViewModel : ViewModelBase
     private string _downloadStatus = "";
     private bool _remoteHasSave;
     private CancellationTokenSource? _downloadCts;
+
+    // Track if folder browser dialog is open
+    private bool _isBrowsingRemote;
 
     private const string REMOTE_SAVEGAMES_PATH = "/StarRupture/Saved/SaveGames";
 
@@ -135,17 +137,27 @@ public class FtpSyncViewModel : ViewModelBase
         }
     }
 
-    public bool UseFtps
+    public FileTransferProtocol Protocol
     {
-        get => _useFtps;
-        set => SetProperty(ref _useFtps, value);
+        get => _protocol;
+        set
+        {
+            if (SetProperty(ref _protocol, value))
+            {
+                // Update port based on protocol
+                if (value == FileTransferProtocol.SFTP && Port == 21)
+                    Port = 22;
+                else if ((value == FileTransferProtocol.FTP || value == FileTransferProtocol.FTPS) && Port == 22)
+                    Port = 21;
+
+                OnPropertyChanged(nameof(IsFtpMode));
+                OnPropertyChanged(nameof(IsSftpMode));
+            }
+        }
     }
 
-    public bool PassiveMode
-    {
-        get => _passiveMode;
-        set => SetProperty(ref _passiveMode, value);
-    }
+    public bool IsFtpMode => Protocol == FileTransferProtocol.FTP || Protocol == FileTransferProtocol.FTPS;
+    public bool IsSftpMode => Protocol == FileTransferProtocol.SFTP;
 
     #endregion
 
@@ -324,10 +336,10 @@ public class FtpSyncViewModel : ViewModelBase
 
     #region Computed Properties
 
-    public bool CanTestConnection => !IsUploading && !IsDownloading && !IsTesting && !string.IsNullOrWhiteSpace(Host);
-    public bool CanUpload => !IsUploading && !IsDownloading && !IsTesting && !string.IsNullOrWhiteSpace(Host) && SelectedFile != null && RemoteSessionSelected;
-    public bool CanBrowseRemote => !IsUploading && !IsDownloading && !IsTesting && !string.IsNullOrWhiteSpace(Host);
-    public bool CanDownload => !IsUploading && !IsDownloading && !IsTesting && !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(RemotePath) && RemoteHasSave;
+    public bool CanTestConnection => !IsUploading && !IsDownloading && !IsTesting && !_isBrowsingRemote && !string.IsNullOrWhiteSpace(Host);
+    public bool CanUpload => !IsUploading && !IsDownloading && !IsTesting && !_isBrowsingRemote && !string.IsNullOrWhiteSpace(Host) && SelectedFile != null && RemoteSessionSelected;
+    public bool CanBrowseRemote => !IsUploading && !IsDownloading && !IsTesting && !_isBrowsingRemote && !string.IsNullOrWhiteSpace(Host);
+    public bool CanDownload => !IsUploading && !IsDownloading && !IsTesting && !_isBrowsingRemote && !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(RemotePath) && RemoteHasSave;
 
     #endregion
 
@@ -509,95 +521,98 @@ public class FtpSyncViewModel : ViewModelBase
             return;
         }
 
-        var settings = CreateFtpSettings();
-
-        // Try detecting the StarRupture savegames path on the server
-        string initialPath = "/";
-        try
+        // Prevent multiple dialogs
+        if (_isBrowsingRemote)
         {
-            var exists = await _ftpService.RemotePathExistsAsync(REMOTE_SAVEGAMES_PATH, settings, Password).ConfigureAwait(false);
-            if (exists)
-            {
-                initialPath = REMOTE_SAVEGAMES_PATH;
-            }
-        }
-        catch
-        {
-            // ignore and fall back to root
-        }
-
-        // Show folder browser dialog starting at the detected path on the UI thread
-        string? selectedPath = null;
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher == null)
-        {
-            ConnectionStatus = "Unable to open folder browser: UI dispatcher not available";
-            ConnectionStatusColor = Brushes.Red;
+            ConnectionStatus = "Folder browser is already open";
+            ConnectionStatusColor = Brushes.Orange;
             return;
         }
 
+        _isBrowsingRemote = true;
         try
         {
-            dispatcher.Invoke(() =>
-                  {
-                      var dialog = new FtpFolderBrowserDialog(settings, Password, initialPath)
-                      {
-                          Owner = Application.Current.MainWindow
-                      };
+            var settings = CreateFtpSettings();
 
-                      if (dialog.ShowDialog() == true)
-                      {
-                          selectedPath = dialog.SelectedPath;
-                      }
-                  });
-        }
-        catch (Exception ex)
-        {
-            ConnectionStatus = $"Failed to show folder browser: {ex.Message}";
-            ConnectionStatusColor = Brushes.Red;
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(selectedPath))
-        {
-            RemotePath = selectedPath;
-
-            // Check if it's a valid session for upload
-            if (RemotePath.StartsWith(REMOTE_SAVEGAMES_PATH) && RemotePath != REMOTE_SAVEGAMES_PATH)
+            // Show folder browser dialog on the UI thread
+            string? selectedPath = null;
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null)
             {
-                RemoteSessionSelected = true;
-                UploadStatus = $"Selected remote session: {RemotePath}";
-            }
-            else
-            {
-                RemoteSessionSelected = false;
-                UploadStatus = "Please select a session folder inside /StarRupture/Saved/SaveGames";
+                ConnectionStatus = "Unable to open folder browser: UI dispatcher not available";
+                ConnectionStatusColor = Brushes.Red;
+                return;
             }
 
-            // Check for download validity
-            DownloadStatus = "Checking remote folder for save files...";
             try
             {
-                var listing = await _ftpService.ListRemoteDirectoryAsync(RemotePath, settings, Password).ConfigureAwait(false);
-                bool hasSav = listing.Any(i => string.Equals(i.Name, "AutoSave0.sav", StringComparison.OrdinalIgnoreCase));
-                bool hasMet = listing.Any(i => string.Equals(i.Name, "AutoSave0.met", StringComparison.OrdinalIgnoreCase));
+                dispatcher.Invoke(() =>
+                {
+                    var dialog = new FtpFolderBrowserDialog(settings, Password, "/")
+                    {
+                        Owner = Application.Current.MainWindow
+                    };
 
-                if (hasSav && hasMet)
-                {
-                    RemoteHasSave = true;
-                    DownloadStatus = $"Remote session valid: {RemotePath}";
-                }
-                else
-                {
-                    RemoteHasSave = false;
-                    DownloadStatus = "Remote path does not contain AutoSave0.sav and AutoSave0.met.";
-                }
+                    if (dialog.ShowDialog() == true)
+                    {
+                        selectedPath = dialog.SelectedPath;
+                      }
+                });
             }
             catch (Exception ex)
             {
-                RemoteHasSave = false;
-                DownloadStatus = $"Error checking remote path: {ex.Message}";
+                ConnectionStatus = $"Failed to show folder browser: {ex.Message}";
+                ConnectionStatusColor = Brushes.Red;
+                return;
             }
+
+            if (!string.IsNullOrEmpty(selectedPath))
+            {
+                RemotePath = selectedPath;
+
+                // Check for both download and upload validity by looking for save files
+                DownloadStatus = "Checking remote folder for save files...";
+                UploadStatus = "Checking remote folder...";
+                
+                try
+                {
+                    var listing = await _ftpService.ListRemoteDirectoryAsync(RemotePath, settings, Password).ConfigureAwait(false);
+                    bool hasSav = listing.Any(i => string.Equals(i.Name, "AutoSave0.sav", StringComparison.OrdinalIgnoreCase));
+                    bool hasMet = listing.Any(i => string.Equals(i.Name, "AutoSave0.met", StringComparison.OrdinalIgnoreCase));
+
+                    if (hasSav && hasMet)
+                    {
+                        // Folder contains save files - valid for both upload and download
+                        RemoteHasSave = true;
+                        RemoteSessionSelected = true;
+                       DownloadStatus = $"Remote session valid: {RemotePath}";
+                   UploadStatus = $"Selected remote session: {RemotePath}";
+                    }
+                    else
+             {
+                // Folder doesn't contain save files yet - still valid for upload (new session)
+                        RemoteHasSave = false;
+                        RemoteSessionSelected = true;
+                        DownloadStatus = "Remote path does not contain AutoSave0.sav and AutoSave0.met.";
+                     UploadStatus = $"Selected remote session: {RemotePath} (new session)";
+             }
+                }
+                catch (Exception ex)
+                         {
+    RemoteHasSave = false;
+     RemoteSessionSelected = false;
+            DownloadStatus = $"Error checking remote path: {ex.Message}";
+                    UploadStatus = $"Error checking remote path: {ex.Message}";
+    }
+         }
+        }
+        finally
+        {
+            _isBrowsingRemote = false;
+            OnPropertyChanged(nameof(CanTestConnection));
+            OnPropertyChanged(nameof(CanBrowseRemote));
+            OnPropertyChanged(nameof(CanUpload));
+            OnPropertyChanged(nameof(CanDownload));
         }
     }
 
@@ -721,17 +736,17 @@ public class FtpSyncViewModel : ViewModelBase
         }
 
         dispatcher.Invoke(() =>
-   {
-       var dialog = new SelectLocalSaveDialog(sessions)
-       {
-           Owner = Application.Current.MainWindow
-       };
+           {
+               var dialog = new SelectLocalSaveDialog(sessions)
+               {
+                   Owner = Application.Current.MainWindow
+               };
 
-       if (dialog.ShowDialog() == true)
-       {
-           targetFile = dialog.SelectedFile;
-       }
-   });
+               if (dialog.ShowDialog() == true)
+               {
+                   targetFile = dialog.SelectedFile;
+               }
+           });
 
         if (targetFile == null)
         {
@@ -838,8 +853,13 @@ public class FtpSyncViewModel : ViewModelBase
         Password = _settingsService.DecryptPassword(ftpSettings.EncryptedPassword);
         // Always start with root - user must select session each time
         RemotePath = "/";
-        UseFtps = ftpSettings.UseFtps;
-        PassiveMode = ftpSettings.PassiveMode;
+        Protocol = ftpSettings.Protocol;
+
+        // Migrate old UseFtps setting to Protocol if needed
+        if (ftpSettings.UseFtps && ftpSettings.Protocol == FileTransferProtocol.FTP)
+        {
+            Protocol = FileTransferProtocol.FTPS;
+        }
     }
 
     private FtpSettings CreateFtpSettings()
@@ -849,8 +869,9 @@ public class FtpSyncViewModel : ViewModelBase
             Host = Host,
             Port = Port,
             Username = Username,
-            UseFtps = UseFtps,
-            PassiveMode = PassiveMode
+            Protocol = Protocol,
+            UseFtps = Protocol == FileTransferProtocol.FTPS, // For backwards compatibility
+            PassiveMode = true // Always use passive mode
         };
     }
 

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using StarRuptureSaveFixer.Models;
 
 namespace StarRuptureSaveFixer.Converters;
 
@@ -22,6 +23,27 @@ public class BoolToVisibilityConverter : IValueConverter
             return visibility == Visibility.Visible;
         }
         return false;
+    }
+}
+
+public class EnumToIndexConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is FileTransferProtocol protocol)
+        {
+            return (int)protocol;
+        }
+        return 0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int index && Enum.IsDefined(typeof(FileTransferProtocol), index))
+        {
+            return (FileTransferProtocol)index;
+        }
+        return FileTransferProtocol.FTP;
     }
 }
 
