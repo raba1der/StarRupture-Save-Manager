@@ -52,6 +52,38 @@ The application provides a tabbed interface with five main sections:
 - Windows x64
 - .NET 8.0 Runtime (or use the self-contained release)
 
+### Cross-Platform Core
+
+The repository now includes a platform-neutral core library project:
+
+- `StarRuptureSaveManager.Core.csproj` (`net8.0`)
+- Contains `Models/`, `Services/`, `Fixers/`, and `Utils/`
+- The WPF desktop app (`StarRuptureSaveManager.csproj`) remains a Windows UI shell that references the core
+
+Build only the core on Linux/macOS:
+
+```bash
+dotnet build StarRuptureSaveManager.Core.csproj -c Release
+```
+
+### Avalonia Desktop Port (Preview)
+
+An in-progress cross-platform desktop UI is available in:
+
+- `src/StarRuptureSaveManager.Avalonia/StarRuptureSaveManager.Avalonia.csproj`
+
+Run it with:
+
+```bash
+dotnet run --project src/StarRuptureSaveManager.Avalonia/StarRuptureSaveManager.Avalonia.csproj
+```
+
+Current Avalonia status:
+- Save Browser: implemented
+- Session Manager: implemented
+- FTP Sync: implemented
+- Settings: implemented
+
 ## Installation
 
 ### Option 1: Download Release (Recommended)

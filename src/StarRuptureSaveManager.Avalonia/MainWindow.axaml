@@ -1,0 +1,211 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:StarRuptureSaveFixer.AvaloniaApp.ViewModels"
+        x:Class="StarRuptureSaveFixer.AvaloniaApp.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Star Rupture Save Manager (Avalonia Preview)"
+        Width="1100"
+        Height="760"
+        MinWidth="900"
+        MinHeight="600"
+        mc:Ignorable="d">
+  <Design.DataContext>
+    <vm:MainWindowViewModel />
+  </Design.DataContext>
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="12">
+    <Border Grid.Row="0" Background="#EFEFEF" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+      <StackPanel>
+        <TextBlock Text="Star Rupture Save Manager" FontSize="24" FontWeight="Bold" />
+        <TextBlock Text="Avalonia Port - Initial Preview" Foreground="#606060" />
+      </StackPanel>
+    </Border>
+
+    <TabControl Grid.Row="1">
+      <TabItem Header="Save Browser">
+        <Grid Margin="8" RowDefinitions="Auto,*,Auto,*" ColumnDefinitions="280,*">
+          <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <Button Content="Refresh" Command="{Binding SaveBrowser.RefreshCommand}" />
+            <Button Content="Open Session Folder" Command="{Binding SaveBrowser.OpenSessionFolderCommand}" />
+          </StackPanel>
+
+          <Border Grid.Row="1" Grid.Column="0" Margin="0,0,8,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6">
+            <Grid RowDefinitions="Auto,*">
+              <TextBlock Text="Sessions" FontWeight="SemiBold" Margin="10,8,10,6" />
+              <ListBox Grid.Row="1" Margin="8" ItemsSource="{Binding SaveBrowser.Sessions}" SelectedItem="{Binding SaveBrowser.SelectedSession}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Margin="2">
+                      <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding SaveCount, StringFormat='Saves: {0}'}" FontSize="12" Foreground="#707070" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6">
+            <Grid RowDefinitions="Auto,*">
+              <TextBlock Text="Save Files" FontWeight="SemiBold" Margin="10,8,10,6" />
+              <ListBox Grid.Row="1" Margin="8" ItemsSource="{Binding SaveBrowser.SaveFilesInSession}" SelectedItem="{Binding SaveBrowser.SelectedSaveFile}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="3*,Auto,Auto" Margin="2">
+                      <TextBlock Grid.Column="0" Text="{Binding FileName}" />
+                      <TextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding LastModifiedDisplay}" Foreground="#707070" />
+                      <TextBlock Grid.Column="2" Margin="8,0,0,0" Text="{Binding FileSizeDisplay}" Foreground="#707070" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <ComboBox Grid.Column="0" ItemsSource="{Binding SaveBrowser.Fixers}" SelectedIndex="{Binding SaveBrowser.SelectedFixerIndex}" />
+              <Button Grid.Column="1" Content="Fix Selected Save" Command="{Binding SaveBrowser.FixSelectedCommand}" />
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="3" Grid.ColumnSpan="2" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="8">
+            <TextBox Text="{Binding SaveBrowser.LogOutput}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" Background="#101214" Foreground="#D8DEE9" FontFamily="Cascadia Code" />
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Session Manager">
+        <Grid Margin="8" RowDefinitions="Auto,*,Auto,*" ColumnDefinitions="*,*">
+          <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <Button Content="Refresh" Command="{Binding SessionManager.RefreshCommand}" />
+            <TextBlock Text="{Binding SessionManager.StatusMessage}" VerticalAlignment="Center" Foreground="#606060" />
+          </StackPanel>
+
+          <Border Grid.Row="1" Grid.Column="0" Margin="0,0,8,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6">
+            <Grid RowDefinitions="Auto,Auto,*">
+              <TextBlock Text="Source Session" FontWeight="SemiBold" Margin="10,8,10,6" />
+              <ComboBox Grid.Row="1" Margin="8,0,8,8" ItemsSource="{Binding SessionManager.Sessions}" SelectedItem="{Binding SessionManager.SourceSession}" />
+              <ListBox Grid.Row="2" Margin="8" ItemsSource="{Binding SessionManager.SourceFiles}" SelectedItem="{Binding SessionManager.SelectedSourceFile}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="3*,Auto" Margin="2">
+                      <TextBlock Grid.Column="0" Text="{Binding FileName}" />
+                      <TextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding FileSizeDisplay}" Foreground="#707070" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6">
+            <Grid RowDefinitions="Auto,*">
+              <TextBlock Text="Target Session" FontWeight="SemiBold" Margin="10,8,10,6" />
+              <StackPanel Grid.Row="1" Margin="8" Spacing="8">
+                <ComboBox ItemsSource="{Binding SessionManager.Sessions}" SelectedItem="{Binding SessionManager.TargetSession}" />
+                <Button Content="Copy Selected Save -> Target" Command="{Binding SessionManager.CopySaveCommand}" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="10">
+            <Grid ColumnDefinitions="2*,Auto,2*,Auto" ColumnSpacing="10">
+              <TextBox Grid.Column="0" Watermark="New session name" Text="{Binding SessionManager.NewSessionName}" />
+              <Button Grid.Column="1" Content="Create Session" Command="{Binding SessionManager.CreateSessionCommand}" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding SessionManager.Sessions}" SelectedItem="{Binding SessionManager.SelectedSessionForDelete}" />
+              <Button Grid.Column="3" Content="Delete Session" Command="{Binding SessionManager.DeleteSessionCommand}" />
+            </Grid>
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="FTP Sync">
+        <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto,Auto" ColumnDefinitions="*,*">
+          <Border Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="10">
+            <Grid ColumnDefinitions="2*,Auto,Auto,2*,2*" ColumnSpacing="8">
+              <TextBox Grid.Column="0" Watermark="Host" Text="{Binding FtpSync.Host}" />
+              <TextBox Grid.Column="1" Width="80" Watermark="Port" Text="{Binding FtpSync.Port}" />
+              <ComboBox Grid.Column="2" Width="110" ItemsSource="{Binding FtpSync.ProtocolOptions}" SelectedItem="{Binding FtpSync.Protocol}" />
+              <TextBox Grid.Column="3" Watermark="Username" Text="{Binding FtpSync.Username}" />
+              <TextBox Grid.Column="4" Watermark="Password" PasswordChar="*" Text="{Binding FtpSync.Password}" />
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="10">
+            <Grid ColumnDefinitions="3*,2*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+              <TextBox Grid.Column="0" Watermark="Remote path" Text="{Binding FtpSync.RemotePath}" />
+              <TextBox Grid.Column="1" Watermark="Remote file name" Text="{Binding FtpSync.RemoteFileName}" />
+              <CheckBox Grid.Column="2" Content="Passive" IsChecked="{Binding FtpSync.PassiveMode}" VerticalAlignment="Center" />
+              <Button Grid.Column="3" Content="Load Saved" Command="{Binding FtpSync.LoadFtpSettingsCommand}" />
+              <Button Grid.Column="4" Content="Save Settings" Command="{Binding FtpSync.SaveFtpSettingsCommand}" />
+              <Button Grid.Column="5" Content="Test Connection" Command="{Binding FtpSync.TestConnectionCommand}" />
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="2" Grid.Column="0" Margin="0,0,8,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6">
+            <Grid RowDefinitions="Auto,*">
+              <TextBlock Text="Local Session" FontWeight="SemiBold" Margin="10,8,10,6" />
+              <ListBox Grid.Row="1" Margin="8" ItemsSource="{Binding FtpSync.Sessions}" SelectedItem="{Binding FtpSync.SelectedSession}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6">
+            <Grid RowDefinitions="Auto,*">
+              <TextBlock Text="Session Files" FontWeight="SemiBold" Margin="10,8,10,6" />
+              <ListBox Grid.Row="1" Margin="8" ItemsSource="{Binding FtpSync.FilesInSession}" SelectedItem="{Binding FtpSync.SelectedFile}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="3*,Auto" Margin="2">
+                      <TextBlock Grid.Column="0" Text="{Binding FileName}" />
+                      <TextBlock Grid.Column="1" Margin="8,0,0,0" Text="{Binding FileSizeDisplay}" Foreground="#707070" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+
+          <Border Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="10">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Refresh Sessions" Command="{Binding FtpSync.RefreshCommand}" />
+              <Button Content="Upload Selected File" Command="{Binding FtpSync.UploadCommand}" />
+              <Button Content="Download Remote File" Command="{Binding FtpSync.DownloadCommand}" />
+              <TextBlock Text="{Binding FtpSync.StatusMessage}" VerticalAlignment="Center" Foreground="#606060" />
+            </StackPanel>
+          </Border>
+
+          <ProgressBar Grid.Row="4" Grid.ColumnSpan="2" Minimum="0" Maximum="100" Value="{Binding FtpSync.ProgressPercent}" Height="14" />
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Settings">
+        <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
+          <TextBlock Grid.Row="0" Text="Save Path Configuration" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+          <TextBlock Grid.Row="1" Text="{Binding Settings.AutoDetectedPath}" Foreground="#606060" TextWrapping="Wrap" />
+          <CheckBox Grid.Row="2" Content="Use custom save path" IsChecked="{Binding Settings.UseCustomPath}" Margin="0,8,0,6" />
+          <TextBox Grid.Row="3" Watermark="Enter custom save path" Text="{Binding Settings.CustomSavePath}" />
+          <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" Margin="0,10,0,6">
+            <Button Content="Save" Command="{Binding Settings.SaveCommand}" />
+            <Button Content="Reset to Auto" Command="{Binding Settings.ResetToAutoCommand}" />
+            <Button Content="Reload" Command="{Binding Settings.ReloadCommand}" />
+          </StackPanel>
+          <TextBlock Grid.Row="5" Text="{Binding Settings.StatusMessage}" Foreground="#606060" />
+        </Grid>
+      </TabItem>
+    </TabControl>
+
+    <Border Grid.Row="2" Background="#EFEFEF" CornerRadius="6" Padding="8" Margin="0,12,0,0">
+      <TextBlock Text="{Binding StatusMessage}" />
+    </Border>
+  </Grid>
+</Window>

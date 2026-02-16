@@ -1,13 +1,11 @@
 using StarRuptureSaveFixer.Models;
+using StarRuptureSaveFixer.Utils;
 using System.IO;
 
 namespace StarRuptureSaveFixer.Services;
 
 public class SessionManager
 {
-    private const string STEAM_USERDATA_PATH = @"C:\Program Files (x86)\Steam\userdata";
-    private const string SAVE_GAME_SUBPATH = @"1631270\remote\Saved\SaveGames";
-
     private string? _customSavePath;
     private string? _cachedSaveGamesRoot;
 
@@ -32,55 +30,13 @@ public class SessionManager
         if (_cachedSaveGamesRoot != null)
             return _cachedSaveGamesRoot;
 
-        if (!Directory.Exists(STEAM_USERDATA_PATH))
-            return null;
-
-        try
-        {
-            var profileDirectories = Directory.GetDirectories(STEAM_USERDATA_PATH);
-
-            foreach (var profileDir in profileDirectories)
-            {
-                string savePath = Path.Combine(profileDir, SAVE_GAME_SUBPATH);
-                if (Directory.Exists(savePath))
-                {
-                    _cachedSaveGamesRoot = savePath;
-                    return savePath;
-                }
-            }
-        }
-        catch
-        {
-            // Ignore errors during directory scanning
-        }
-
-        return null;
+        _cachedSaveGamesRoot = FindAutoDetectedPath();
+        return _cachedSaveGamesRoot;
     }
 
     public string? GetAutoDetectedPath()
     {
-        if (!Directory.Exists(STEAM_USERDATA_PATH))
-            return null;
-
-        try
-        {
-            var profileDirectories = Directory.GetDirectories(STEAM_USERDATA_PATH);
-
-            foreach (var profileDir in profileDirectories)
-            {
-                string savePath = Path.Combine(profileDir, SAVE_GAME_SUBPATH);
-                if (Directory.Exists(savePath))
-                {
-                    return savePath;
-                }
-            }
-        }
-        catch
-        {
-            // Ignore errors
-        }
-
-        return null;
+        return FindAutoDetectedPath();
     }
 
     public List<SaveSession> GetAllSessions()
@@ -205,7 +161,8 @@ public class SessionManager
             return false;
 
         // Safety check: don't delete the root or paths outside it
-        if (sessionPath == root || !sessionPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+        var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (sessionPath == root || !sessionPath.StartsWith(root, pathComparison))
             return false;
 
         try
@@ -263,5 +220,30 @@ public class SessionManager
 
         var sessionPath = Path.Combine(root, sessionName);
         return Directory.Exists(sessionPath);
+    }
+
+    private string? FindAutoDetectedPath()
+    {
+        foreach (var userDataPath in SteamPathResolver.GetSteamUserDataCandidates())
+        {
+            if (!Directory.Exists(userDataPath))
+                continue;
+
+            try
+            {
+                foreach (var profileDir in Directory.GetDirectories(userDataPath))
+                {
+                    var savePath = SteamPathResolver.BuildSaveGamePath(profileDir);
+                    if (Directory.Exists(savePath))
+                        return savePath;
+                }
+            }
+            catch
+            {
+                // Ignore errors during directory scanning
+            }
+        }
+
+        return null;
     }
 }

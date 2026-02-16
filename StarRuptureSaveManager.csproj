@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
@@ -25,16 +26,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentFTP" Version="50.0.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="SSH.NET" Version="2025.1.0" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ApplicationDefinition Remove="App.xaml" />
+    <Compile Remove="Fixers\**\*.cs" />
+    <Compile Remove="Models\**\*.cs" />
+    <Compile Remove="Services\**\*.cs" />
+    <Compile Remove="Utils\**\*.cs" />
+    <Compile Remove="Avalonia\**\*.cs" />
+    <Compile Remove="Program.cs" />
+    <Compile Remove="App.axaml.cs" />
+    <Compile Remove="MainWindow.axaml.cs" />
     <Content Include=".github\commit-template.txt" />
     <None Include=".github\COMMIT_GUIDELINES.md" />
     <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="StarRuptureSaveManager.Core.csproj" />
   </ItemGroup>
 
   <!-- Import auto-versioning (only when enabled) -->
