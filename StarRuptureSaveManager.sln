@@ -10,6 +10,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{01F5E26D-837
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StarRuptureSaveManager.Avalonia", "src\StarRuptureSaveManager.Avalonia\StarRuptureSaveManager.Avalonia.csproj", "{2C2D51E9-A392-4705-9A2C-10190526EB4F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EB3C9761-0875-4B33-B70C-229BE7C405B7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StarRuptureSaveManager.Core.Tests", "tests\StarRuptureSaveManager.Core.Tests\StarRuptureSaveManager.Core.Tests.csproj", "{1950AAD3-0784-498B-AD6A-1C30D672E0B8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,6 +32,10 @@ Global
 		{2C2D51E9-A392-4705-9A2C-10190526EB4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C2D51E9-A392-4705-9A2C-10190526EB4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C2D51E9-A392-4705-9A2C-10190526EB4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1950AAD3-0784-498B-AD6A-1C30D672E0B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1950AAD3-0784-498B-AD6A-1C30D672E0B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1950AAD3-0784-498B-AD6A-1C30D672E0B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1950AAD3-0784-498B-AD6A-1C30D672E0B8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -37,5 +45,6 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{2C2D51E9-A392-4705-9A2C-10190526EB4F} = {01F5E26D-8373-49F5-A995-7FB9EEFBA3A8}
+		{1950AAD3-0784-498B-AD6A-1C30D672E0B8} = {EB3C9761-0875-4B33-B70C-229BE7C405B7}
 	EndGlobalSection
 EndGlobal

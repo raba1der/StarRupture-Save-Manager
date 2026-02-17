@@ -1,4 +1,5 @@
 using StarRuptureSaveFixer.Services;
+using System.Text;
 using System.Windows.Input;
 
 namespace StarRuptureSaveFixer.AvaloniaApp.ViewModels;
@@ -12,6 +13,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _autoDetectedPath = "";
     private bool _useCustomPath;
     private string _statusMessage = "";
+    private string _statusLog = "";
 
     public SettingsViewModel(Action onSettingsChanged)
     {
@@ -60,6 +62,12 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetProperty(ref _statusMessage, value);
     }
 
+    public string StatusLog
+    {
+        get => _statusLog;
+        private set => SetProperty(ref _statusLog, value);
+    }
+
     public ICommand SaveCommand { get; }
     public ICommand ResetToAutoCommand { get; }
     public ICommand ReloadCommand { get; }
@@ -72,18 +80,34 @@ public sealed class SettingsViewModel : ViewModelBase
         AutoDetectedPath = sessionManager.GetAutoDetectedPath() ?? "(Not found - Steam path not detected)";
         CustomSavePath = settings.CustomSavePath ?? "";
         UseCustomPath = !string.IsNullOrWhiteSpace(settings.CustomSavePath);
-        StatusMessage = "Settings loaded.";
+        SetStatus("Settings loaded.");
     }
 
     private void Save()
     {
+        var trimmedCustomPath = CustomSavePath.Trim();
+        if (UseCustomPath)
+        {
+            if (string.IsNullOrWhiteSpace(trimmedCustomPath))
+            {
+                SetStatus("Custom path is enabled but empty.", true);
+                return;
+            }
+
+            if (!Directory.Exists(trimmedCustomPath))
+            {
+                SetStatus("Custom path does not exist.", true);
+                return;
+            }
+        }
+
         var settings = _settingsService.LoadSettings();
-        settings.CustomSavePath = UseCustomPath && !string.IsNullOrWhiteSpace(CustomSavePath)
-            ? CustomSavePath.Trim()
+        settings.CustomSavePath = UseCustomPath
+            ? trimmedCustomPath
             : null;
 
         _settingsService.SaveSettings(settings);
-        StatusMessage = "Settings saved.";
+        SetStatus("Settings saved.");
         _onSettingsChanged.Invoke();
     }
 
@@ -91,6 +115,14 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         UseCustomPath = false;
         CustomSavePath = "";
-        StatusMessage = "Reset to auto-detect. Save to apply.";
+        SetStatus("Reset to auto-detect. Save to apply.");
+    }
+
+    private void SetStatus(string message, bool isError = false)
+    {
+        StatusMessage = message;
+        var builder = new StringBuilder(StatusLog);
+        builder.AppendLine($"[{DateTime.Now:HH:mm:ss}] {(isError ? "ERROR" : "INFO ")} {message}");
+        StatusLog = builder.ToString();
     }
 }

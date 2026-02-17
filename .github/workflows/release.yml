@@ -1,109 +1,98 @@
-name: Build and Release
+name: Release (Linux Avalonia)
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - '**/*.cs'
-      - '**/*.xaml'
-      - '**/*.csproj'
-      - '**/*.sln'
-      - '.github/workflows/**'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - '**/*.cs'
-      - '**/*.xaml'
-      - '**/*.csproj'
-      - '**/*.sln'
-      - '.github/workflows/**'
+    tags:
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
-jobs:
-  build:
-    runs-on: windows-latest
+env:
+  DOTNET_VERSION: "8.0.x"
+  AVALONIA_PROJECT: "src/StarRuptureSaveManager.Avalonia/StarRuptureSaveManager.Avalonia.csproj"
 
+jobs:
+  test-core:
+    name: Test Core
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Restore
+        run: dotnet restore StarRuptureSaveManager.sln
 
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
+      - name: Run Core Tests
+        run: dotnet test tests/StarRuptureSaveManager.Core.Tests/StarRuptureSaveManager.Core.Tests.csproj -c Release --no-restore
 
-      - name: Publish
-        run: dotnet publish --configuration Release --no-build --output ./publish
+  package-linux:
+    name: Package ${{ matrix.rid }}
+    needs: test-core
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Get version and changelog
-        id: version
-        shell: pwsh
-        run: |
-          $version = "v1.0.${{ github.run_number }}"
-          "VERSION=$version" >> $env:GITHUB_OUTPUT
-
-          $previousTag = git describe --tags --abbrev=0 2>$null
-          if (-not $previousTag) {
-            $previousTag = git rev-list --max-parents=0 HEAD
-          }
-
-          $commitLines = git log "$previousTag..HEAD" --pretty=format:"- %s" --no-merges
-          $commits = ($commitLines -join "`n")
-
-          $changelog = @"
-          ## What's Changed
-          $commits
-          "@
-
-          "CHANGELOG<<EOF" >> $env:GITHUB_OUTPUT
-          $changelog >> $env:GITHUB_OUTPUT
-          "EOF" >> $env:GITHUB_OUTPUT
-
-      - name: Create Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          name: Release ${{ steps.version.outputs.VERSION }}
-          body: |
-            # Star Rupture Save Manager - ${{ steps.version.outputs.VERSION }}
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-            ${{ steps.version.outputs.CHANGELOG }}
-
-            ---
-
-            ## Installation
-
-            1. Download `StarRuptureSaveManager.exe` below
-            2. Run the executable (no installation required)
-            3. The app will auto-detect your Steam save location
-
-            ## Usage
-
-            - **Save Browser**: Fix corrupted save files
-            - **Session Manager**: Copy saves between game sessions
-            - **FTP Sync**: Upload/download saves to remote server
-
-            **Note**: Original files are automatically backed up as `*_original.sav`
-
-            ---
-
-            Visit [StarRupture-Utilities.com](https://StarRupture-Utilities.com) for more information!
-          files: |
-            ./publish/StarRuptureSaveManager.exe
-          draft: false
-          prerelease: false
+      - name: Publish ${{ matrix.rid }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AVALONIA_TELEMETRY_OPTOUT: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p dist/publish/${{ matrix.rid }}
+          dotnet publish "${{ env.AVALONIA_PROJECT }}" \
+            -c Release \
+            -r "${{ matrix.rid }}" \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=false \
+            -o "dist/publish/${{ matrix.rid }}"
+
+      - name: Create tar.gz
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          ARTIFACT="dist/StarRuptureSaveManager-Avalonia-${VERSION}-${{ matrix.rid }}.tar.gz"
+          tar -czf "$ARTIFACT" -C "dist/publish/${{ matrix.rid }}" .
+          echo "ARTIFACT=$ARTIFACT" >> "$GITHUB_ENV"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.rid }}
+          path: ${{ env.ARTIFACT }}
+          if-no-files-found: error
+
+  create-release:
+    name: Create GitHub Release
+    needs: package-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz

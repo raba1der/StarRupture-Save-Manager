@@ -124,7 +124,7 @@
       </TabItem>
 
       <TabItem Header="FTP Sync">
-        <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto,Auto" ColumnDefinitions="*,*">
+        <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto,Auto,120" ColumnDefinitions="*,*">
           <Border Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="10">
             <Grid ColumnDefinitions="2*,Auto,Auto,2*,2*" ColumnSpacing="8">
               <TextBox Grid.Column="0" Watermark="Host" Text="{Binding FtpSync.Host}" />
@@ -136,13 +136,19 @@
           </Border>
 
           <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,8" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="10">
-            <Grid ColumnDefinitions="3*,2*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+            <Grid ColumnDefinitions="3*,2*,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
               <TextBox Grid.Column="0" Watermark="Remote path" Text="{Binding FtpSync.RemotePath}" />
               <TextBox Grid.Column="1" Watermark="Remote file name" Text="{Binding FtpSync.RemoteFileName}" />
               <CheckBox Grid.Column="2" Content="Passive" IsChecked="{Binding FtpSync.PassiveMode}" VerticalAlignment="Center" />
               <Button Grid.Column="3" Content="Load Saved" Command="{Binding FtpSync.LoadFtpSettingsCommand}" />
               <Button Grid.Column="4" Content="Save Settings" Command="{Binding FtpSync.SaveFtpSettingsCommand}" />
               <Button Grid.Column="5" Content="Test Connection" Command="{Binding FtpSync.TestConnectionCommand}" />
+              <CheckBox Grid.Row="1" Grid.Column="3"
+                        Content="Overwrite remote on upload"
+                        IsChecked="{Binding FtpSync.AllowOverwriteRemoteUpload}" />
+              <CheckBox Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2"
+                        Content="Overwrite local on download"
+                        IsChecked="{Binding FtpSync.AllowOverwriteLocalDownload}" />
             </Grid>
           </Border>
 
@@ -185,11 +191,15 @@
           </Border>
 
           <ProgressBar Grid.Row="4" Grid.ColumnSpan="2" Minimum="0" Maximum="100" Value="{Binding FtpSync.ProgressPercent}" Height="14" />
+          <Border Grid.Row="5" Grid.ColumnSpan="2" Margin="0,8,0,0" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="6">
+            <TextBox Text="{Binding FtpSync.StatusLog}" IsReadOnly="True" TextWrapping="Wrap"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" Background="#101214" Foreground="#D8DEE9" FontFamily="Cascadia Code" />
+          </Border>
         </Grid>
       </TabItem>
 
       <TabItem Header="Settings">
-        <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
+        <Grid Margin="8" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,120">
           <TextBlock Grid.Row="0" Text="Save Path Configuration" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
           <TextBlock Grid.Row="1" Text="{Binding Settings.AutoDetectedPath}" Foreground="#606060" TextWrapping="Wrap" />
           <CheckBox Grid.Row="2" Content="Use custom save path" IsChecked="{Binding Settings.UseCustomPath}" Margin="0,8,0,6" />
@@ -200,6 +210,10 @@
             <Button Content="Reload" Command="{Binding Settings.ReloadCommand}" />
           </StackPanel>
           <TextBlock Grid.Row="5" Text="{Binding Settings.StatusMessage}" Foreground="#606060" />
+          <Border Grid.Row="6" Margin="0,8,0,0" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="6" Padding="6">
+            <TextBox Text="{Binding Settings.StatusLog}" IsReadOnly="True" TextWrapping="Wrap"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" Background="#101214" Foreground="#D8DEE9" FontFamily="Cascadia Code" />
+          </Border>
         </Grid>
       </TabItem>
     </TabControl>

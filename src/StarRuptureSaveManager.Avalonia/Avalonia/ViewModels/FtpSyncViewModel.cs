@@ -1,6 +1,8 @@
 using StarRuptureSaveFixer.Models;
 using StarRuptureSaveFixer.Services;
+using StarRuptureSaveFixer.AvaloniaApp.Services;
 using System.Collections.ObjectModel;
+using System.Text;
 using System.Windows.Input;
 
 namespace StarRuptureSaveFixer.AvaloniaApp.ViewModels;
@@ -19,11 +21,14 @@ public sealed class FtpSyncViewModel : ViewModelBase
     private string _remoteFileName = "AutoSave0.sav";
     private FileTransferProtocol _protocol = FileTransferProtocol.FTP;
     private bool _passiveMode = true;
+    private bool _allowOverwriteRemoteUpload;
+    private bool _allowOverwriteLocalDownload;
 
     private SaveSession? _selectedSession;
     private SaveFileInfo? _selectedFile;
     private int _progressPercent;
     private string _statusMessage = "Ready.";
+    private string _statusLog = "";
     private bool _isBusy;
 
     public FtpSyncViewModel()
@@ -108,6 +113,18 @@ public sealed class FtpSyncViewModel : ViewModelBase
         set => SetProperty(ref _passiveMode, value);
     }
 
+    public bool AllowOverwriteRemoteUpload
+    {
+        get => _allowOverwriteRemoteUpload;
+        set => SetProperty(ref _allowOverwriteRemoteUpload, value);
+    }
+
+    public bool AllowOverwriteLocalDownload
+    {
+        get => _allowOverwriteLocalDownload;
+        set => SetProperty(ref _allowOverwriteLocalDownload, value);
+    }
+
     public SaveSession? SelectedSession
     {
         get => _selectedSession;
@@ -145,6 +162,12 @@ public sealed class FtpSyncViewModel : ViewModelBase
     {
         get => _statusMessage;
         set => SetProperty(ref _statusMessage, value);
+    }
+
+    public string StatusLog
+    {
+        get => _statusLog;
+        private set => SetProperty(ref _statusLog, value);
     }
 
     public bool IsBusy
@@ -191,10 +214,10 @@ public sealed class FtpSyncViewModel : ViewModelBase
     {
         await RunWithProgress(async () =>
         {
-            StatusMessage = "Testing connection...";
+            SetStatus("Testing connection...");
             var result = await _ftpService.TestConnectionAsync(CreateFtpSettings(), Password);
             ProgressPercent = result.Success ? 100 : 0;
-            StatusMessage = result.Message;
+            SetStatus(result.Message, !result.Success);
         });
     }
 
@@ -205,6 +228,25 @@ public sealed class FtpSyncViewModel : ViewModelBase
 
         await RunWithProgress(async () =>
         {
+            if (!File.Exists(SelectedFile.FullPath))
+            {
+                SetStatus("Selected local file no longer exists.", true);
+                ProgressPercent = 0;
+                return;
+            }
+
+            var normalizedRemoteFileName = ValidateRemoteFileName();
+            if (normalizedRemoteFileName == null)
+                return;
+
+            var remoteExists = await RemoteFileExistsAsync(normalizedRemoteFileName);
+            if (remoteExists && !AllowOverwriteRemoteUpload)
+            {
+                SetStatus("Remote file already exists. Enable overwrite to continue.", true);
+                ProgressPercent = 0;
+                return;
+            }
+
             var progress = new Progress<(int Percent, string Status)>(p =>
             {
                 ProgressPercent = p.Percent;
@@ -214,13 +256,13 @@ public sealed class FtpSyncViewModel : ViewModelBase
             var ok = await _ftpService.UploadFileAsAsync(
                 SelectedFile.FullPath,
                 RemotePath,
-                RemoteFileName,
+                normalizedRemoteFileName,
                 CreateFtpSettings(),
                 Password,
                 progress);
 
             if (!ok)
-                StatusMessage = "Upload failed.";
+                SetStatus("Upload failed.", true);
         });
     }
 
@@ -231,8 +273,33 @@ public sealed class FtpSyncViewModel : ViewModelBase
 
         await RunWithProgress(async () =>
         {
-            var localFile = Path.Combine(SelectedSession.FullPath, RemoteFileName);
-            var remoteFile = $"{RemotePath.TrimEnd('/')}/{RemoteFileName}";
+            var normalizedRemoteFileName = ValidateRemoteFileName();
+            if (normalizedRemoteFileName == null)
+                return;
+
+            var localFile = Path.Combine(SelectedSession.FullPath, normalizedRemoteFileName);
+            if (File.Exists(localFile) && !AllowOverwriteLocalDownload)
+            {
+                SetStatus("Local target file exists. Enable overwrite to continue.", true);
+                ProgressPercent = 0;
+                return;
+            }
+
+            if (File.Exists(localFile) && AllowOverwriteLocalDownload)
+            {
+                var confirmed = await ConfirmationDialog.ConfirmAsync(
+                    "Overwrite Local File",
+                    $"The file '{normalizedRemoteFileName}' already exists in the selected session.\n\nOverwrite it?",
+                    "Overwrite");
+                if (!confirmed)
+                {
+                    SetStatus("Download cancelled.", true);
+                    ProgressPercent = 0;
+                    return;
+                }
+            }
+
+            var remoteFile = $"{RemotePath.TrimEnd('/')}/{normalizedRemoteFileName}";
 
             var progress = new Progress<(int Percent, string Status)>(p =>
             {
@@ -249,11 +316,11 @@ public sealed class FtpSyncViewModel : ViewModelBase
 
             if (!ok)
             {
-                StatusMessage = "Download failed.";
+                SetStatus("Download failed.", true);
                 return;
             }
 
-            StatusMessage = $"Downloaded to {localFile}.";
+            SetStatus($"Downloaded to {localFile}.");
             Refresh();
         });
     }
@@ -267,7 +334,7 @@ public sealed class FtpSyncViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            StatusMessage = ex.Message;
+            SetStatus(ToFriendlyError(ex), true);
             ProgressPercent = 0;
         }
         finally
@@ -282,7 +349,7 @@ public sealed class FtpSyncViewModel : ViewModelBase
         appSettings.FtpSettings = CreateFtpSettings();
         appSettings.FtpSettings.EncryptedPassword = _settingsService.EncryptPassword(Password);
         _settingsService.SaveSettings(appSettings);
-        StatusMessage = "FTP settings saved.";
+        SetStatus("FTP settings saved.");
     }
 
     private void LoadFtpSettings()
@@ -296,6 +363,33 @@ public sealed class FtpSyncViewModel : ViewModelBase
         Protocol = ftp.Protocol;
         PassiveMode = ftp.PassiveMode;
         Password = _settingsService.DecryptPassword(ftp.EncryptedPassword);
+        SetStatus("FTP settings loaded.");
+    }
+
+    private string? ValidateRemoteFileName()
+    {
+        var value = RemoteFileName?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            SetStatus("Remote file name is required.", true);
+            ProgressPercent = 0;
+            return null;
+        }
+
+        if (value.Contains('/') || value.Contains('\\'))
+        {
+            SetStatus("Remote file name must not contain path separators.", true);
+            ProgressPercent = 0;
+            return null;
+        }
+
+        return value;
+    }
+
+    private async Task<bool> RemoteFileExistsAsync(string remoteFileName)
+    {
+        var items = await _ftpService.ListRemoteDirectoryAsync(RemotePath, CreateFtpSettings(), Password);
+        return items.Any(i => !i.IsDirectory && string.Equals(i.Name, remoteFileName, StringComparison.OrdinalIgnoreCase));
     }
 
     private FtpSettings CreateFtpSettings()
@@ -316,5 +410,25 @@ public sealed class FtpSyncViewModel : ViewModelBase
         ((AsyncRelayCommand)TestConnectionCommand).RaiseCanExecuteChanged();
         ((AsyncRelayCommand)UploadCommand).RaiseCanExecuteChanged();
         ((AsyncRelayCommand)DownloadCommand).RaiseCanExecuteChanged();
+    }
+
+    private void SetStatus(string message, bool isError = false)
+    {
+        StatusMessage = message;
+        var builder = new StringBuilder(StatusLog);
+        builder.AppendLine($"[{DateTime.Now:HH:mm:ss}] {(isError ? "ERROR" : "INFO ")} {message}");
+        StatusLog = builder.ToString();
+    }
+
+    private static string ToFriendlyError(Exception ex)
+    {
+        return ex switch
+        {
+            OperationCanceledException => "Operation cancelled.",
+            UnauthorizedAccessException => "Permission denied while accessing a file.",
+            IOException => "File operation failed. Check path and permissions.",
+            TimeoutException => "Network timeout. Check server and connection.",
+            _ => ex.Message
+        };
     }
 }

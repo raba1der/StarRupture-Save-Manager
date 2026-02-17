@@ -1,5 +1,6 @@
 using StarRuptureSaveFixer.Models;
 using StarRuptureSaveFixer.Services;
+using StarRuptureSaveFixer.AvaloniaApp.Services;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
@@ -22,7 +23,7 @@ public sealed class SessionManagerViewModel : ViewModelBase
 
         CopySaveCommand = new RelayCommand(CopySave, () => CanCopySave);
         CreateSessionCommand = new RelayCommand(CreateSession, () => CanCreateSession);
-        DeleteSessionCommand = new RelayCommand(DeleteSession, () => CanDeleteSession);
+        DeleteSessionCommand = new AsyncRelayCommand(DeleteSessionAsync, () => CanDeleteSession);
         RefreshCommand = new RelayCommand(Refresh);
 
         Refresh();
@@ -75,7 +76,7 @@ public sealed class SessionManagerViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _selectedSessionForDelete, value))
-                ((RelayCommand)DeleteSessionCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)DeleteSessionCommand).RaiseCanExecuteChanged();
         }
     }
 
@@ -105,7 +106,9 @@ public sealed class SessionManagerViewModel : ViewModelBase
         SourceSession.FullPath != TargetSession.FullPath;
 
     public bool CanCreateSession => !string.IsNullOrWhiteSpace(NewSessionName);
-    public bool CanDeleteSession => SelectedSessionForDelete != null && SelectedSessionForDelete.Name != "";
+    public bool CanDeleteSession =>
+        SelectedSessionForDelete != null &&
+        SelectedSessionForDelete.Name != "";
 
     public ICommand CopySaveCommand { get; }
     public ICommand CreateSessionCommand { get; }
@@ -127,7 +130,7 @@ public sealed class SessionManagerViewModel : ViewModelBase
             TargetSession = Sessions.FirstOrDefault(s => s.FullPath == previousTarget);
 
         StatusMessage = $"Found {Sessions.Count} session(s).";
-        ((RelayCommand)DeleteSessionCommand).RaiseCanExecuteChanged();
+        ((AsyncRelayCommand)DeleteSessionCommand).RaiseCanExecuteChanged();
     }
 
     private void CopySave()
@@ -157,12 +160,22 @@ public sealed class SessionManagerViewModel : ViewModelBase
         Refresh();
     }
 
-    private void DeleteSession()
+    private async Task DeleteSessionAsync()
     {
         if (SelectedSessionForDelete == null)
             return;
 
         var session = SelectedSessionForDelete;
+        var confirmed = await ConfirmationDialog.ConfirmAsync(
+            "Delete Session",
+            $"Delete session '{session.DisplayName}' and all files inside it?\n\nThis action cannot be undone.",
+            "Delete");
+        if (!confirmed)
+        {
+            StatusMessage = "Delete cancelled.";
+            return;
+        }
+
         var ok = _sessionManager.DeleteSession(session.FullPath);
         StatusMessage = ok
             ? $"Session '{session.DisplayName}' deleted."

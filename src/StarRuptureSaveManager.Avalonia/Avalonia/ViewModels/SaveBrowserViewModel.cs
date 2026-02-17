@@ -145,7 +145,7 @@ public sealed class SaveBrowserViewModel : ViewModelBase
             }
 
             var backupPath = GetBackupFilePath(filePath);
-            File.Move(filePath, backupPath, overwrite: true);
+            File.Move(filePath, backupPath, overwrite: false);
             await Task.Run(() => _saveFileService.SaveSaveFile(saveFile, filePath));
 
             Log("Fix complete.");
@@ -203,7 +203,12 @@ public sealed class SaveBrowserViewModel : ViewModelBase
     {
         var directory = Path.GetDirectoryName(originalPath) ?? "";
         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(originalPath);
-        return Path.Combine(directory, $"{fileNameWithoutExtension}_original.sav");
+        var defaultBackupPath = Path.Combine(directory, $"{fileNameWithoutExtension}_original.sav");
+        if (!File.Exists(defaultBackupPath))
+            return defaultBackupPath;
+
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        return Path.Combine(directory, $"{fileNameWithoutExtension}_original_{timestamp}.sav");
     }
 
     private void Log(string message)

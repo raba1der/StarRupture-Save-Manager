@@ -1,9 +1,9 @@
 # Star Rupture Save Manager
 
-A Windows desktop application for managing and repairing save files for the game **Star Rupture**. This utility helps fix corrupted saves, manage game sessions, and sync saves via FTP.
+A cross-platform desktop application for managing and repairing save files for the game **Star Rupture**. The primary UI is now Avalonia (`net8.0`), backed by a shared platform-neutral core library.
 
 ![.NET 8.0](https://img.shields.io/badge/.NET-8.0-purple)
-![Platform](https://img.shields.io/badge/platform-Windows%20x64-blue)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Screenshots
@@ -29,7 +29,7 @@ A Windows desktop application for managing and repairing save files for the game
 ### FTP Integration
 - **Upload Saves** – Sync your save files to a remote FTP server
 - **Download Saves** – Retrieve save files from your FTP server
-- **Secure Storage** – FTP credentials encrypted using Windows DPAPI
+- **Secure Storage** – FTP credentials encrypted per-user (DPAPI on Windows, AES key on non-Windows)
 - **FTPS Support** – Explicit TLS encryption for secure transfers
 
 ### Additional Features
@@ -49,16 +49,27 @@ The application provides a tabbed interface with five main sections:
 
 ## Requirements
 
-- Windows x64
-- .NET 8.0 Runtime (or use the self-contained release)
+- .NET 8.0 SDK (for build from source)
+- Linux desktop, Windows, or macOS for the Avalonia UI
 
-### Cross-Platform Core
+### Primary UI (Avalonia)
+
+- Project: `src/StarRuptureSaveManager.Avalonia/StarRuptureSaveManager.Avalonia.csproj`
+- Future feature development targets this UI.
+
+Run:
+
+```bash
+dotnet run --project src/StarRuptureSaveManager.Avalonia/StarRuptureSaveManager.Avalonia.csproj
+```
+
+### Core Library
 
 The repository now includes a platform-neutral core library project:
 
 - `StarRuptureSaveManager.Core.csproj` (`net8.0`)
 - Contains `Models/`, `Services/`, `Fixers/`, and `Utils/`
-- The WPF desktop app (`StarRuptureSaveManager.csproj`) remains a Windows UI shell that references the core
+- The legacy WPF app (`StarRuptureSaveManager.csproj`) remains for backward compatibility on Windows only.
 
 Build only the core on Linux/macOS:
 
@@ -66,23 +77,39 @@ Build only the core on Linux/macOS:
 dotnet build StarRuptureSaveManager.Core.csproj -c Release
 ```
 
-### Avalonia Desktop Port (Preview)
-
-An in-progress cross-platform desktop UI is available in:
-
-- `src/StarRuptureSaveManager.Avalonia/StarRuptureSaveManager.Avalonia.csproj`
-
-Run it with:
-
-```bash
-dotnet run --project src/StarRuptureSaveManager.Avalonia/StarRuptureSaveManager.Avalonia.csproj
-```
-
 Current Avalonia status:
 - Save Browser: implemented
 - Session Manager: implemented
 - FTP Sync: implemented
 - Settings: implemented
+
+Parity checklist:
+- `docs/AVALONIA_PARITY_CHECKLIST.md`
+
+Linux packaging:
+- `scripts/package-linux.sh` (linux-x64)
+- `scripts/package-linux.sh --with-arm64` (linux-x64 + linux-arm64)
+
+### Release Tagging Flow
+
+The GitHub release workflow runs automatically when you push a tag matching `v*`.
+
+```bash
+# From main with committed changes
+git pull
+git tag v1.0.9
+git push origin v1.0.9
+```
+
+This triggers `.github/workflows/release.yml`, which:
+- runs core regression tests
+- builds Avalonia Linux artifacts for `linux-x64` and `linux-arm64`
+- uploads `.tar.gz` files to the GitHub Release for that tag
+
+### WPF Status (Legacy)
+
+- `StarRuptureSaveManager.csproj` is now legacy.
+- New features should be implemented in Avalonia + Core.
 
 ## Installation
 
@@ -99,8 +126,14 @@ cd StarRupture-Save-Fixer
 # Build the project
 dotnet build -c Release
 
-# Or publish as a single self-contained executable
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+# Build all projects
+dotnet build StarRuptureSaveManager.sln -c Release
+
+# Run core regression tests
+dotnet test tests/StarRuptureSaveManager.Core.Tests/StarRuptureSaveManager.Core.Tests.csproj -c Debug
+
+# Package Linux artifacts (tar.gz)
+./scripts/package-linux.sh
 ```
 
 ## Usage
@@ -168,7 +201,7 @@ Application settings are stored at:
 %APPDATA%\StarRuptureSaveFixer\settings.json
 ```
 
-FTP passwords are encrypted using Windows Data Protection API (DPAPI) for security.
+FTP passwords are encrypted per-user for security (DPAPI on Windows, local AES key file on non-Windows).
 
 Diagnostic logs are stored at:
 ```
